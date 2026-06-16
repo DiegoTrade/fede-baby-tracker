@@ -1,0 +1,17 @@
+{
+  "name": "Federico",
+  "short_name": "Fede",
+  "description": "Registro familiar de tomas, pañales y notas.",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f4f7f2",
+  "theme_color": "#f4f7f2",
+  "icons": [
+    {
+      "src": "./app-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

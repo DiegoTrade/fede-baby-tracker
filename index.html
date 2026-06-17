@@ -9,7 +9,8 @@
     <title>Federico</title>
     <link rel="manifest" href="./manifest.webmanifest">
     <link rel="icon" href="./app-icon.svg" type="image/svg+xml">
-    <link rel="stylesheet" href="./styles.css?v=32">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <link rel="stylesheet" href="./styles.css?v=33">
   </head>
   <body>
     <div class="app-shell">
@@ -303,10 +304,21 @@
         <section class="screen" data-tab="export">
           <header class="topbar">
             <div>
-              <p class="eyebrow">Markdown</p>
+              <p class="eyebrow">Respaldo</p>
               <h1>Exportar</h1>
             </div>
           </header>
+          <section class="backup-card">
+            <div>
+              <p class="backup-card__eyebrow">Respaldo completo</p>
+              <h2>Guardar todo</h2>
+              <p>Registros, ajustes, mensajes de Federico y datos importados en un archivo restaurable.</p>
+            </div>
+            <div class="export-actions">
+              <button class="primary-button" id="shareBackupButton" type="button">Compartir respaldo</button>
+              <button class="secondary-button" id="downloadBackupButton" type="button">Descargar .json</button>
+            </div>
+          </section>
           <section class="export-band">
             <p class="backup-line" id="backupStatus">Guardado en este teléfono</p>
             <div class="export-actions">
@@ -346,6 +358,12 @@
               <span>Dosis cólicos</span>
               <input id="colicDoseInput" name="colicDose" autocomplete="off">
             </label>
+            <label class="settings-form__wide">
+              <span>Mensajes de Federico</span>
+              <textarea id="loveMessagesInput" name="loveMessages" rows="7" spellcheck="true"></textarea>
+              <small>Uno por línea. Aparecen cada 3 tomas registradas.</small>
+            </label>
+            <button class="secondary-button" id="resetLoveMessagesButton" type="button">Mensajes originales</button>
             <button class="primary-button" type="submit">Guardar ajustes</button>
           </form>
           <section class="import-zone">
@@ -354,6 +372,21 @@
               <p class="import-zone__meta" id="importNotesMeta">Listo para importar</p>
             </div>
             <button class="primary-button" id="importNotesButton" type="button">Importar notas</button>
+          </section>
+          <section class="import-zone">
+            <div>
+              <h2>Restaurar respaldo</h2>
+              <p class="import-zone__meta" id="restoreBackupMeta">Usa un .json exportado por esta app</p>
+            </div>
+            <input class="restore-input" id="restoreBackupInput" type="file" accept=".json,application/json">
+            <button class="primary-button" id="restoreBackupButton" type="button">Restaurar</button>
+          </section>
+          <section class="import-zone app-status-zone">
+            <div>
+              <h2>Modo app</h2>
+              <p class="import-zone__meta" id="appInstallStatus">Comprobando instalación</p>
+            </div>
+            <span class="app-version-pill" id="appVersionStatus">v33</span>
           </section>
           <section class="danger-zone">
             <button class="secondary-button" id="seedButton" type="button">Cargar ejemplo</button>
@@ -556,6 +589,6 @@
     </dialog>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
-    <script src="./app.js?v=32" type="module"></script>
+    <script src="./app.js?v=33" type="module"></script>
   </body>
 </html>

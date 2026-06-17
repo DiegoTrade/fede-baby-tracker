@@ -1,6 +1,9 @@
 import { HISTORICAL_IMPORT } from "./historical-data.js?v=23";
 
 const STORAGE_KEY = "fede-baby-tracker-v3";
+const APP_VERSION = "v33";
+const BACKUP_VERSION = 1;
+const APP_VERSION_KEY = `${STORAGE_KEY}-app-version`;
 
 const SIDE_LABELS = {
   left: "Izquierda",
@@ -79,6 +82,7 @@ const DEFAULT_STATE = {
     colicMedicineName: "BioGaia Reuteri",
     colicDose: "5 gotas",
     nightMode: false,
+    loveMessages: [...LOVE_NOTES],
   },
   events: [],
   vitaminDByDate: {},
@@ -145,6 +149,8 @@ const els = {
   loveNoteText: $("#loveNoteText"),
   loveNoteCloseButton: $("#loveNoteCloseButton"),
   markdownPreview: $("#markdownPreview"),
+  shareBackupButton: $("#shareBackupButton"),
+  downloadBackupButton: $("#downloadBackupButton"),
   shareMarkdownButton: $("#shareMarkdownButton"),
   copyMarkdownButton: $("#copyMarkdownButton"),
   downloadMarkdownButton: $("#downloadMarkdownButton"),
@@ -154,7 +160,14 @@ const els = {
   vitaminTimeInput: $("#vitaminTimeInput"),
   colicMedicineInput: $("#colicMedicineInput"),
   colicDoseInput: $("#colicDoseInput"),
+  loveMessagesInput: $("#loveMessagesInput"),
+  resetLoveMessagesButton: $("#resetLoveMessagesButton"),
   backupStatus: $("#backupStatus"),
+  restoreBackupButton: $("#restoreBackupButton"),
+  restoreBackupInput: $("#restoreBackupInput"),
+  restoreBackupMeta: $("#restoreBackupMeta"),
+  appInstallStatus: $("#appInstallStatus"),
+  appVersionStatus: $("#appVersionStatus"),
   copyPediatricianButton: $("#copyPediatricianButton"),
   pediatricianSummary: $("#pediatricianSummary"),
   seedButton: $("#seedButton"),
@@ -210,10 +223,11 @@ const els = {
 
 bindEvents();
 render();
+announceAppVersion();
 setInterval(tick, 1000);
 
 if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.register("./sw.js").catch(() => {});
+  navigator.serviceWorker.register("./sw.js").then((registration) => registration.update()).catch(() => {});
 }
 
 function bindEvents() {
@@ -265,6 +279,8 @@ function bindEvents() {
     els.quickNoteInput.value = "";
   });
 
+  els.shareBackupButton.addEventListener("click", shareBackup);
+  els.downloadBackupButton.addEventListener("click", downloadBackup);
   els.shareMarkdownButton.addEventListener("click", shareMarkdown);
   els.copyMarkdownButton.addEventListener("click", copyMarkdown);
   els.downloadMarkdownButton.addEventListener("click", downloadMarkdown);
@@ -298,11 +314,21 @@ function bindEvents() {
     state.settings.vitaminTime = els.vitaminTimeInput.value || DEFAULT_STATE.settings.vitaminTime;
     state.settings.colicMedicineName = els.colicMedicineInput.value.trim() || DEFAULT_STATE.settings.colicMedicineName;
     state.settings.colicDose = els.colicDoseInput.value.trim() || DEFAULT_STATE.settings.colicDose;
+    state.settings.loveMessages = parseLoveMessagesInput(els.loveMessagesInput.value);
     saveState();
     render();
     showToast("Ajustes guardados");
   });
 
+  els.resetLoveMessagesButton.addEventListener("click", () => {
+    state.settings.loveMessages = [...LOVE_NOTES];
+    saveState();
+    render();
+    showToast("Mensajes originales");
+  });
+
+  els.restoreBackupButton.addEventListener("click", () => els.restoreBackupInput.click());
+  els.restoreBackupInput.addEventListener("change", () => restoreBackupFromFile(els.restoreBackupInput.files?.[0]));
   els.seedButton.addEventListener("click", seedExample);
   els.importNotesButton.addEventListener("click", importHistoricalNotes);
   els.clearButton.addEventListener("click", clearData);
@@ -344,7 +370,8 @@ function bindEvents() {
   window.addEventListener("beforeinstallprompt", (event) => {
     event.preventDefault();
     deferredInstallPrompt = event;
-    els.installButton.hidden = false;
+    if (!isStandaloneMode()) els.installButton.hidden = false;
+    renderAppInstallStatus();
   });
 
   els.installButton.addEventListener("click", async () => {
@@ -353,33 +380,55 @@ function bindEvents() {
     await deferredInstallPrompt.userChoice;
     deferredInstallPrompt = null;
     els.installButton.hidden = true;
+    renderAppInstallStatus();
   });
+
+  window.matchMedia?.("(display-mode: standalone)")?.addEventListener?.("change", renderAppInstallStatus);
 }
 
 function loadState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return structuredClone(DEFAULT_STATE);
-    const saved = JSON.parse(raw);
-    return {
-      ...structuredClone(DEFAULT_STATE),
-      ...saved,
-      settings: {
-        ...structuredClone(DEFAULT_STATE).settings,
-        ...(saved.settings || {}),
-      },
-      imports: {
-        ...structuredClone(DEFAULT_STATE).imports,
-        ...(saved.imports || {}),
-      },
-      loveNotesSeen: {
-        ...structuredClone(DEFAULT_STATE).loveNotesSeen,
-        ...(saved.loveNotesSeen || {}),
-      },
-    };
+    if (!raw) return defaultState();
+    return normalizeState(JSON.parse(raw));
   } catch {
-    return structuredClone(DEFAULT_STATE);
+    return defaultState();
   }
+}
+
+function defaultState() {
+  return structuredClone(DEFAULT_STATE);
+}
+
+function normalizeState(saved = {}) {
+  const base = defaultState();
+  const source = isPlainObject(saved) ? saved : {};
+  const next = {
+    ...base,
+    ...source,
+    settings: {
+      ...base.settings,
+      ...(isPlainObject(source.settings) ? source.settings : {}),
+    },
+    imports: {
+      ...base.imports,
+      ...(isPlainObject(source.imports) ? source.imports : {}),
+    },
+    loveNotesSeen: {
+      ...base.loveNotesSeen,
+      ...(isPlainObject(source.loveNotesSeen) ? source.loveNotesSeen : {}),
+    },
+    vitaminDByDate: isPlainObject(source.vitaminDByDate) ? source.vitaminDByDate : {},
+    events: Array.isArray(source.events) ? source.events.filter(Boolean) : [],
+    activeFeed: isPlainObject(source.activeFeed) ? source.activeFeed : null,
+    lastExportISO: typeof source.lastExportISO === "string" ? source.lastExportISO : "",
+  };
+  next.settings.loveMessages = normalizeLoveMessages(next.settings.loveMessages);
+  return next;
+}
+
+function isPlainObject(value) {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
 function saveState() {
@@ -430,7 +479,10 @@ function render() {
   els.vitaminTimeInput.value = state.settings.vitaminTime;
   els.colicMedicineInput.value = state.settings.colicMedicineName;
   els.colicDoseInput.value = state.settings.colicDose;
+  els.loveMessagesInput.value = loveNoteMessages().join("\n");
   els.backupStatus.textContent = backupStatusText();
+  els.restoreBackupMeta.textContent = `Reemplaza los datos locales · ${pluralize(state.events.length, "registro", "registros")} actuales`;
+  renderAppInstallStatus();
   renderImportStatus();
 
   renderActiveFeed();
@@ -783,6 +835,32 @@ function applyNightMode() {
   document.body.classList.toggle("night-mode", Boolean(state.settings.nightMode));
   els.nightModeButton.setAttribute("aria-pressed", String(Boolean(state.settings.nightMode)));
   els.themeColorMeta?.setAttribute("content", state.settings.nightMode ? "#111816" : "#f4f7f2");
+}
+
+function renderAppInstallStatus() {
+  if (!els.appInstallStatus || !els.appVersionStatus) return;
+  const installed = isStandaloneMode();
+  els.appVersionStatus.textContent = APP_VERSION;
+  els.appInstallStatus.textContent = installed
+    ? `Instalada en pantalla de inicio · ${APP_VERSION}`
+    : `Abierta en navegador · ${APP_VERSION} · en iPhone: compartir y añadir a inicio`;
+  if (installed) els.installButton.hidden = true;
+}
+
+function announceAppVersion() {
+  try {
+    const previousVersion = localStorage.getItem(APP_VERSION_KEY);
+    if (previousVersion && previousVersion !== APP_VERSION) {
+      window.setTimeout(() => showToast(`App actualizada · ${APP_VERSION}`), 650);
+    }
+    localStorage.setItem(APP_VERSION_KEY, APP_VERSION);
+  } catch {
+    // Version toasts are a nicety; the tracker should never depend on them.
+  }
+}
+
+function isStandaloneMode() {
+  return Boolean(window.navigator.standalone) || Boolean(window.matchMedia?.("(display-mode: standalone)")?.matches);
 }
 
 function toggleNightMode() {
@@ -1314,6 +1392,28 @@ function isNotesImportEvent(event) {
   return typeof event.id === "string" && event.id.startsWith("notes-");
 }
 
+function normalizeLoveMessages(messages) {
+  const source = Array.isArray(messages)
+    ? messages
+    : typeof messages === "string"
+      ? messages.split("\n")
+      : LOVE_NOTES;
+  const clean = source
+    .map((message) => String(message).trim())
+    .filter(Boolean)
+    .map((message) => message.slice(0, 180))
+    .slice(0, 24);
+  return clean.length ? clean : [...LOVE_NOTES];
+}
+
+function parseLoveMessagesInput(value) {
+  return normalizeLoveMessages(value);
+}
+
+function loveNoteMessages() {
+  return normalizeLoveMessages(state.settings?.loveMessages);
+}
+
 function maybeBuildLoveNote(event) {
   if (event.type !== "feed") return null;
   const dateKey = eventDateKey(event);
@@ -1324,8 +1424,9 @@ function maybeBuildLoveNote(event) {
   const key = `${dateKey}-${feedCount}`;
   if (state.loveNotesSeen[key]) return null;
 
-  const index = (feedCount / 3 - 1) % LOVE_NOTES.length;
-  const note = LOVE_NOTES[index];
+  const messages = loveNoteMessages();
+  const index = (feedCount / 3 - 1) % messages.length;
+  const note = messages[index];
   const emoji = LOVE_NOTE_EMOJIS[index % LOVE_NOTE_EMOJIS.length];
   state.loveNotesSeen[key] = new Date().toISOString();
   return { key, dateKey, feedCount, note, emoji };
@@ -1336,10 +1437,10 @@ function showLoveNote({ dateKey, feedCount, note, emoji }) {
     showToast(note);
     return;
   }
-  els.loveNoteMark.textContent = emoji || "💥";
+  els.loveNoteMark.textContent = emoji || "💛";
   els.loveNoteCount.textContent = dateKey === todayKey()
-    ? `${feedCount} tomas hoy ${emoji || "💥"}`
-    : `${feedCount} tomas el ${dateToShort(dateKey)} ${emoji || "💥"}`;
+    ? `${feedCount} tomas hoy ${emoji || "💛"}`
+    : `${feedCount} tomas el ${dateToShort(dateKey)} ${emoji || "💛"}`;
   els.loveNoteText.textContent = note;
   if (els.loveNoteDialog.open) els.loveNoteDialog.close();
   els.loveNoteDialog.showModal();
@@ -1651,6 +1752,104 @@ function feedToMarkdown(event) {
   return `${range} - ${SIDE_EXPORT[event.side]} ${tags}${note}`.trim();
 }
 
+function backupPayload() {
+  const snapshot = normalizeState({ ...structuredClone(state), activeFeed: null });
+  const sortedEvents = [...snapshot.events].sort(byOldest);
+  return {
+    app: "fede-baby-tracker",
+    backupVersion: BACKUP_VERSION,
+    appVersion: APP_VERSION,
+    exportedAt: new Date().toISOString(),
+    summary: {
+      babyName: snapshot.settings.babyName,
+      events: snapshot.events.length,
+      from: sortedEvents[0] ? eventDateKey(sortedEvents[0]) : "",
+      to: sortedEvents[sortedEvents.length - 1] ? eventDateKey(sortedEvents[sortedEvents.length - 1]) : "",
+    },
+    state: snapshot,
+  };
+}
+
+function backupJSON() {
+  return JSON.stringify(backupPayload(), null, 2);
+}
+
+async function shareBackup() {
+  const text = backupJSON();
+  const fileName = backupFileName();
+  const title = `${state.settings.babyName} · respaldo`;
+
+  try {
+    if (navigator.share) {
+      const file = new File([text], fileName, { type: "application/json" });
+      if (navigator.canShare?.({ files: [file] })) {
+        await navigator.share({
+          title,
+          text: `Respaldo completo de ${state.settings.babyName}`,
+          files: [file],
+        });
+      } else {
+        await navigator.share({ title, text });
+      }
+      markExported();
+      showToast("Respaldo compartido");
+      return;
+    }
+  } catch (error) {
+    if (error?.name === "AbortError") return;
+  }
+
+  try {
+    await navigator.clipboard.writeText(text);
+    markExported();
+    showToast("Compartir no disponible · respaldo copiado");
+  } catch {
+    showToast("Compartir no disponible");
+  }
+}
+
+function downloadBackup() {
+  const blob = new Blob([backupJSON()], { type: "application/json;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = backupFileName();
+  document.body.append(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+  markExported();
+  showToast("Respaldo listo");
+}
+
+async function restoreBackupFromFile(file) {
+  if (!file) return;
+  try {
+    const payload = JSON.parse(await file.text());
+    const nextState = stateFromBackupPayload(payload);
+    const ok = window.confirm(`Restaurar respaldo de ${nextState.settings.babyName} con ${pluralize(nextState.events.length, "registro", "registros")}? Esto reemplaza los datos locales de este teléfono.`);
+    if (!ok) return;
+    state = nextState;
+    state.activeFeed = null;
+    saveState();
+    render();
+    haptic("save");
+    showToast(`Respaldo restaurado · ${pluralize(state.events.length, "registro", "registros")}`);
+  } catch {
+    showToast("Respaldo inválido");
+  } finally {
+    els.restoreBackupInput.value = "";
+  }
+}
+
+function stateFromBackupPayload(payload) {
+  if (!isPlainObject(payload)) throw new Error("Invalid backup");
+  if (payload.app && payload.app !== "fede-baby-tracker") throw new Error("Wrong app");
+  const source = isPlainObject(payload.state) ? payload.state : payload;
+  if (!Array.isArray(source.events)) throw new Error("Missing events");
+  return normalizeState(source);
+}
+
 async function copyMarkdown() {
   const text = exportMarkdown();
   if (!text) return showToast("Sin registros");
@@ -1717,14 +1916,21 @@ function markExported() {
 }
 
 function exportFileName() {
-  const base = (state.settings.babyName || "federico")
+  return `${exportSlug()}-${todayKey()}.md`;
+}
+
+function backupFileName() {
+  return `${exportSlug()}-respaldo-${todayKey()}.json`;
+}
+
+function exportSlug() {
+  return (state.settings.babyName || "federico")
     .trim()
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "") || "federico";
-  return `${base}-${todayKey()}.md`;
 }
 
 function byNewest(a, b) {

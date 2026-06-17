@@ -293,6 +293,7 @@ h2 {
 .timeline-band,
 .history-band,
 .pediatrician-band,
+.backup-card,
 .export-band,
 .settings-form,
 .danger-zone {
@@ -876,6 +877,7 @@ body.has-active-feed .active-feed {
 
 .note-capture input,
 .settings-form input,
+.settings-form textarea,
 .manual-card input,
 .manual-card select {
   min-height: 46px;
@@ -885,6 +887,14 @@ body.has-active-feed .active-feed {
   background: rgba(255, 253, 248, 0.88);
   color: var(--ink);
   padding: 0 12px;
+}
+
+.settings-form textarea {
+  min-height: 142px;
+  padding: 12px;
+  resize: vertical;
+  line-height: 1.4;
+  font: inherit;
 }
 
 .chip-row {
@@ -1394,6 +1404,36 @@ body.has-active-feed .active-feed {
   gap: 8px;
 }
 
+.backup-card {
+  max-width: 760px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(240px, 0.55fr);
+  gap: 18px;
+  align-items: center;
+}
+
+.backup-card h2 {
+  font-size: clamp(26px, 3vw, 40px);
+  line-height: 0.98;
+  margin-bottom: 8px;
+}
+
+.backup-card p {
+  max-width: 430px;
+  color: var(--muted);
+  font-weight: 760;
+  line-height: 1.35;
+}
+
+.backup-card__eyebrow {
+  margin-bottom: 8px;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 1000;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
 .export-actions {
   margin-bottom: 12px;
 }
@@ -1456,6 +1496,17 @@ body.has-active-feed .active-feed {
   gap: 7px;
 }
 
+.settings-form small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 780;
+  line-height: 1.35;
+}
+
+.settings-form__wide {
+  grid-column: 1 / -1;
+}
+
 .danger-zone {
   display: flex;
   gap: 10px;
@@ -1488,6 +1539,28 @@ body.has-active-feed .active-feed {
 .import-zone button:disabled {
   opacity: 0.58;
   cursor: default;
+}
+
+.restore-input {
+  display: none;
+}
+
+.app-status-zone {
+  background: linear-gradient(135deg, rgba(255, 253, 248, 0.82), rgba(233, 246, 239, 0.78));
+}
+
+.app-version-pill {
+  flex: 0 0 auto;
+  min-height: 44px;
+  min-width: 72px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--surface-strong);
+  display: inline-grid;
+  place-items: center;
+  padding: 0 14px;
+  color: var(--ink);
+  font-weight: 1000;
 }
 
 .manual-dialog {
@@ -1809,9 +1882,11 @@ body.night-mode .chip,
 body.night-mode .manual-panel,
 body.night-mode .note-capture input,
 body.night-mode .settings-form input,
+body.night-mode .settings-form textarea,
 body.night-mode .manual-card input,
 body.night-mode .manual-card select,
 body.night-mode .import-zone,
+body.night-mode .app-status-zone,
 body.night-mode .segmented-control,
 body.night-mode .history-search input,
 body.night-mode .history-summary-card,
@@ -2075,6 +2150,10 @@ body.night-mode .vitamin-toggle[aria-pressed="true"] span:last-child {
   }
 
   .month-day {
+    grid-template-columns: 1fr;
+  }
+
+  .backup-card {
     grid-template-columns: 1fr;
   }
 

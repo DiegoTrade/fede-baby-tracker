@@ -59,14 +59,16 @@ const MEDICINES = {
 const LOVE_NOTE_EMOJIS = ["💥", "🤯", "💥", "✨", "💛", "🚀"];
 
 const LOVE_NOTES = [
-  "Boom. Tres tomas más. Federico no sabe decirlo todavía, pero está orgullosísimo de su mamá.",
-  "Mini pausa: estás haciendo algo enorme, incluso cuando parece rutina.",
-  "Equipo leche va ganando el día. Muy fuerte lo tuyo, mamá.",
-  "Esto no es solo anotar tomas. Es cuidado, paciencia y amor en modo repetición.",
-  "Mamá, hidrátate. Mensaje oficial con admiración y una orden suave de tomar agua.",
-  "Federico está en su era gourmet. Tú estás en tu era heroína tranquila.",
-  "Otra ronda completada. Que conste oficialmente: lo estás haciendo precioso.",
-  "Si hoy nadie lo dijo todavía: gracias por tanto amor en cosas tan pequeñas.",
+  "Gracias, mami. Eres la mejor por darme tu tetica. Te amo.",
+  "Deliciosa tu tetica, mami. Te amooo.",
+  "Voy a pedirte más en un ratito. Te amo.",
+  "Mami, tu tetica está 10/10. Atentamente: tu bebé favorito.",
+  "Gracias por mi lechita, mami. Me hace feliz y me da sueñito rico.",
+  "Perdón si pido otra ronda en cinco minutos. Es que estaba buenísima.",
+  "Mami, servicio excelente. Voy a volver pronto. Te amo.",
+  "Tu tetica es mi lugar favorito del mundo mundial.",
+  "Gracias por cuidarme tanto, mami. Yo sé que a veces pido mucho, pero te amo más.",
+  "Mami, no es por presionar, pero creo que en un ratito voy a querer postre.",
 ];
 
 const DEFAULT_STATE = {
@@ -1322,8 +1324,7 @@ function maybeBuildLoveNote(event) {
   const key = `${dateKey}-${feedCount}`;
   if (state.loveNotesSeen[key]) return null;
 
-  const seed = dateKey.split("").reduce((total, char) => total + char.charCodeAt(0), 0);
-  const index = (seed + feedCount / 3 - 1) % LOVE_NOTES.length;
+  const index = (feedCount / 3 - 1) % LOVE_NOTES.length;
   const note = LOVE_NOTES[index];
   const emoji = LOVE_NOTE_EMOJIS[index % LOVE_NOTE_EMOJIS.length];
   state.loveNotesSeen[key] = new Date().toISOString();

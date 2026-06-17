@@ -796,6 +796,10 @@ body.has-active-feed .active-feed {
 }
 
 .more-options-summary {
+  width: 100%;
+  appearance: none;
+  font: inherit;
+  text-align: left;
   min-height: 62px;
   border-radius: var(--radius);
   border: 1px solid rgba(37, 40, 36, 0.1);
@@ -829,46 +833,10 @@ body.has-active-feed .active-feed {
   text-transform: uppercase;
 }
 
-.quick-log-band[open] .more-options-summary {
-  margin-bottom: 12px;
-}
-
 .diaper-detail-panel:not([open]) > .diaper-detail-content,
-.quick-log-band:not([open]) > .quick-log-content,
 .advanced-settings:not([open]) > .advanced-settings__content,
 .export-advanced:not([open]) > :not(summary) {
   display: none;
-}
-
-.quick-log-content {
-  display: grid;
-  gap: 14px;
-}
-
-.manual-shortcut-card {
-  min-width: 0;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 12px;
-  border-radius: var(--radius);
-  border: 1px solid rgba(37, 40, 36, 0.12);
-  background: rgba(255, 253, 248, 0.82);
-  padding: 14px;
-}
-
-.manual-shortcut-card h2 {
-  margin: 0 0 4px;
-  font-size: 18px;
-  line-height: 1.1;
-}
-
-.manual-shortcut-card p {
-  margin: 0;
-  color: var(--muted);
-  font-size: 13px;
-  font-weight: 760;
-  line-height: 1.35;
 }
 
 .quick-section,
@@ -3058,14 +3026,6 @@ body.night-mode .vitamin-toggle[aria-pressed="true"] span:last-child {
   .manual-when,
   .manual-grid {
     grid-template-columns: 1fr;
-  }
-
-  .manual-shortcut-card {
-    grid-template-columns: 1fr;
-  }
-
-  .manual-shortcut-card .tiny-command {
-    width: 100%;
   }
 
   .daily-strip {

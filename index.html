@@ -11,7 +11,7 @@
     <link rel="icon" href="./app-icon-192.png" type="image/png">
     <link rel="apple-touch-icon" href="./apple-touch-icon.png">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <link rel="stylesheet" href="./styles.css?v=56">
+    <link rel="stylesheet" href="./styles.css?v=57">
   </head>
   <body>
     <div class="app-shell">
@@ -216,21 +216,12 @@
             </div>
           </section>
 
-          <details class="quick-log-band" aria-label="Registro manual">
-            <summary class="more-options-summary">
+          <section class="quick-log-band" aria-label="Registro manual">
+            <button class="more-options-summary" id="manualButton" type="button">
               <span>Registro manual</span>
               <small>Agregar algo pasado o detalles</small>
-            </summary>
-            <div class="quick-log-content">
-              <div class="manual-shortcut-card">
-                <div>
-                  <h2>Agregar registro pasado</h2>
-                  <p>Toma, pañal, medicina, peso o nota con fecha y hora.</p>
-                </div>
-                <button class="tiny-command" id="manualButton" type="button">Abrir manual</button>
-              </div>
-            </div>
-          </details>
+            </button>
+          </section>
 
           <section class="timeline-band" aria-label="Linea de tiempo">
             <div class="section-heading">
@@ -408,7 +399,7 @@
                   <h2>Modo app</h2>
                   <p class="import-zone__meta" id="appInstallStatus">Comprobando instalación</p>
                 </div>
-                <span class="app-version-pill" id="appVersionStatus">v56</span>
+                <span class="app-version-pill" id="appVersionStatus">v57</span>
               </section>
               <section class="settings-secret" id="loveMessagesSecret">
                 <div class="settings-secret__locked" id="loveMessagesLockedPanel">
@@ -643,6 +634,6 @@
     </dialog>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
-    <script src="./app.js?v=56" type="module"></script>
+    <script src="./app.js?v=57" type="module"></script>
   </body>
 </html>

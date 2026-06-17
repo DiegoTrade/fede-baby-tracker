@@ -1,7 +1,7 @@
 import { HISTORICAL_IMPORT } from "./historical-data.js?v=23";
 
 const STORAGE_KEY = "fede-baby-tracker-v3";
-const APP_VERSION = "v35";
+const APP_VERSION = "v38";
 const BACKUP_VERSION = 1;
 const APP_VERSION_KEY = `${STORAGE_KEY}-app-version`;
 
@@ -841,7 +841,7 @@ function renderMarkdown() {
 function applyNightMode() {
   document.body.classList.toggle("night-mode", Boolean(state.settings.nightMode));
   els.nightModeButton.setAttribute("aria-pressed", String(Boolean(state.settings.nightMode)));
-  els.themeColorMeta?.setAttribute("content", state.settings.nightMode ? "#111816" : "#f4f7f2");
+  els.themeColorMeta?.setAttribute("content", state.settings.nightMode ? "#101014" : "#f7f3ec");
 }
 
 function renderAppInstallStatus() {

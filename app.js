@@ -1,7 +1,7 @@
 import { HISTORICAL_IMPORT } from "./historical-data.js?v=23";
 
 const STORAGE_KEY = "fede-baby-tracker-v3";
-const APP_VERSION = "v41";
+const APP_VERSION = "v42";
 const BACKUP_VERSION = 1;
 const APP_VERSION_KEY = `${STORAGE_KEY}-app-version`;
 const LOVE_MESSAGES_PIN = "1234";
@@ -112,6 +112,7 @@ let historyFilter = "all";
 let historySearch = "";
 let selectedHistoryDate = "";
 let loveMessagesUnlocked = false;
+let activeTab = "today";
 
 const els = {
   themeColorMeta: $("#themeColorMeta"),
@@ -129,6 +130,12 @@ const els = {
   bioGaiaCardButton: $("#bioGaiaCardButton"),
   recommendedStartButton: $("#recommendedStartButton"),
   trustLine: $("#trustLine"),
+  smartCockpit: $("#smartCockpit"),
+  smartInsightTitle: $("#smartInsightTitle"),
+  smartInsightBody: $("#smartInsightBody"),
+  feedGapPill: $("#feedGapPill"),
+  diaperGapPill: $("#diaperGapPill"),
+  medicinePill: $("#medicinePill"),
   alertStack: $("#alertStack"),
   activeFeedPanel: $("#activeFeedPanel"),
   activeFeedSide: $("#activeFeedSide"),
@@ -147,6 +154,7 @@ const els = {
   quickNoteInput: $("#quickNoteInput"),
   historySearchInput: $("#historySearchInput"),
   historySummaryGrid: $("#historySummaryGrid"),
+  rhythmCard: $("#rhythmCard"),
   recentDaysList: $("#recentDaysList"),
   recentDaysMeta: $("#recentDaysMeta"),
   archiveMeta: $("#archiveMeta"),
@@ -191,6 +199,17 @@ const els = {
   importNotesButton: $("#importNotesButton"),
   importNotesMeta: $("#importNotesMeta"),
   manualButton: $("#manualButton"),
+  quickDock: $("#quickDock"),
+  dockPrimaryButton: $("#dockPrimaryButton"),
+  dockPrimaryIcon: $("#dockPrimaryIcon"),
+  dockPrimaryLabel: $("#dockPrimaryLabel"),
+  dockPrimaryMeta: $("#dockPrimaryMeta"),
+  dockDiaperButton: $("#dockDiaperButton"),
+  dockDiaperMeta: $("#dockDiaperMeta"),
+  dockMedicineButton: $("#dockMedicineButton"),
+  dockMedicineIcon: $("#dockMedicineIcon"),
+  dockMedicineLabel: $("#dockMedicineLabel"),
+  dockMedicineMeta: $("#dockMedicineMeta"),
   manualDialog: $("#manualDialog"),
   manualForm: $("#manualForm"),
   manualCloseButton: $("#manualCloseButton"),
@@ -260,6 +279,9 @@ function bindEvents() {
   });
 
   els.recommendedStartButton.addEventListener("click", () => startFeed(getRecommendedSide()));
+  els.dockPrimaryButton.addEventListener("click", handleDockPrimary);
+  els.dockDiaperButton.addEventListener("click", () => logDiaper("pee"));
+  els.dockMedicineButton.addEventListener("click", handleDockMedicine);
 
   $$("[data-segment-side]").forEach((button) => {
     button.addEventListener("click", () => switchFeedSide(button.dataset.segmentSide));
@@ -384,6 +406,9 @@ function bindEvents() {
   });
 
   document.addEventListener("click", (event) => {
+    const pressedButton = event.target.closest("button");
+    if (pressedButton) pulseButton(pressedButton);
+
     const historyDateButton = event.target.closest("[data-history-date]");
     if (historyDateButton) {
       selectedHistoryDate = historyDateButton.dataset.historyDate;
@@ -469,6 +494,7 @@ function saveState() {
 }
 
 function render() {
+  document.body.dataset.activeTab = activeTab;
   const today = todayKey();
   const todayEvents = eventsForDate(today);
   const feeds = todayEvents.filter((event) => event.type === "feed");
@@ -520,6 +546,8 @@ function render() {
   renderImportStatus();
 
   renderActiveFeed();
+  renderSmartInsight(todayEvents, latestFeed, recommendedSide);
+  renderDock(todayEvents, recommendedSide);
   renderAlerts(todayEvents);
   renderTimeline(todayEvents);
   renderHistory();
@@ -554,6 +582,7 @@ function unlockLoveMessages() {
 function renderActiveFeed() {
   if (!state.activeFeed) {
     els.activeFeedPanel.hidden = true;
+    delete els.activeFeedPanel.dataset.side;
     document.body.classList.remove("has-active-feed");
     return;
   }
@@ -561,15 +590,193 @@ function renderActiveFeed() {
   const openSegment = state.activeFeed.segments.find((segment) => !segment.endISO);
   const side = openSegment?.side || state.activeFeed.side;
   els.activeFeedPanel.hidden = false;
+  els.activeFeedPanel.dataset.side = side;
   document.body.classList.add("has-active-feed");
   els.activeFeedSide.textContent = `Toma en curso · empezó ${formatTime(new Date(state.activeFeed.startISO))}`;
   els.activeFeedHint.textContent = activeFeedHintText();
   els.activeFeedTimer.textContent = elapsedClock(new Date(state.activeFeed.startISO), new Date());
 }
 
+function renderSmartInsight(todayEvents = eventsForDate(todayKey()), latestFeed = latestFeedEvent(), recommendedSide = getRecommendedSide()) {
+  const insight = buildSmartInsight(todayEvents, latestFeed, recommendedSide);
+  els.smartCockpit.dataset.tone = insight.tone;
+  els.smartInsightTitle.textContent = insight.title;
+  els.smartInsightBody.textContent = insight.body;
+  els.feedGapPill.textContent = insight.feedPill;
+  els.diaperGapPill.textContent = insight.diaperPill;
+  els.medicinePill.textContent = insight.medicinePill;
+}
+
+function buildSmartInsight(todayEvents, latestFeed, recommendedSide) {
+  const today = todayKey();
+  const feeds = todayEvents.filter((event) => event.type === "feed");
+  const diapers = todayEvents.filter((event) => event.type === "diaper");
+  const pendingMeds = pendingMedicines(today);
+  const latestDiaper = diapers.sort(byNewest)[0];
+  const sideText = SIDE_LABELS[recommendedSide].toLowerCase();
+  const feedPill = state.activeFeed
+    ? `Toma en curso · ${elapsedClock(new Date(state.activeFeed.startISO), new Date())}`
+    : latestFeed
+      ? `Última toma · ${timeAgo(new Date(latestFeed.endISO || latestFeed.startISO))}`
+      : "Sin tomas aún";
+  const diaperPill = latestDiaper
+    ? `${diapers.length} pañales · último ${timeAgo(new Date(latestDiaper.timeISO))}`
+    : `${diapers.length} pañales hoy`;
+  const medicinePill = pendingMeds.length
+    ? `Pendiente · ${pendingMeds.map((med) => medicineConfig(med).name.replace(" Reuteri", "")).join(" + ")}`
+    : "Medicinas listas";
+
+  if (state.activeFeed) {
+    const openSegment = state.activeFeed.segments.find((segment) => !segment.endISO);
+    const currentSide = openSegment?.side || state.activeFeed.side;
+    return {
+      tone: "live",
+      title: "Toma en curso",
+      body: `${activeFeedHintText()} desde ${formatTime(new Date(state.activeFeed.startISO))}. Cambia de pecho si hace falta o guarda al terminar.`,
+      feedPill,
+      diaperPill,
+      medicinePill,
+      side: currentSide,
+    };
+  }
+
+  if (!feeds.length) {
+    return {
+      tone: "soft",
+      title: "Primera toma de hoy",
+      body: `Cuando Federico empiece, toca ${sideText}. El contador queda corriendo aunque cierres el teléfono.`,
+      feedPill,
+      diaperPill,
+      medicinePill,
+    };
+  }
+
+  if (latestFeed) {
+    const minutes = Math.floor((Date.now() - new Date(latestFeed.endISO || latestFeed.startISO).getTime()) / 60000);
+    if (minutes >= 180) {
+      return {
+        tone: "care",
+        title: "Puede venir otra toma",
+        body: `La última fue hace ${timeAgo(new Date(latestFeed.endISO || latestFeed.startISO))}. Si pide, el siguiente pecho sería ${sideText}.`,
+        feedPill,
+        diaperPill,
+        medicinePill,
+      };
+    }
+  }
+
+  if (pendingMeds.length) {
+    const firstMed = medicineConfig(pendingMeds[0]);
+    return {
+      tone: "med",
+      title: `${firstMed.name.replace(" Reuteri", "")} pendiente`,
+      body: `Queda registrar ${firstMed.dose}. El botón de medicina lo marca en un toque.`,
+      feedPill,
+      diaperPill,
+      medicinePill,
+    };
+  }
+
+  const hour = new Date().getHours();
+  if (hour >= 17 && diapers.length < 4) {
+    return {
+      tone: "quiet",
+      title: "Pañales por revisar",
+      body: `${diapers.length} pañales registrados hoy. Si hubo otro, el botón Pis lo guarda rápido y luego puedes editarlo.`,
+      feedPill,
+      diaperPill,
+      medicinePill,
+    };
+  }
+
+  const usual = typicalDailyFeedCount();
+  const remaining = Math.max(0, usual - feeds.length);
+  const rhythmText = remaining
+    ? `Según su ritmo normal, podrían quedar alrededor de ${remaining} más.`
+    : "Ya está cerca de su ritmo normal de tomas.";
+  return {
+    tone: "good",
+    title: "Buen ritmo",
+    body: `${feeds.length} tomas hoy. ${rhythmText} Siguiente: ${sideText}.`,
+    feedPill,
+    diaperPill,
+    medicinePill,
+  };
+}
+
+function renderDock(todayEvents = eventsForDate(todayKey()), recommendedSide = getRecommendedSide()) {
+  const diapers = todayEvents.filter((event) => event.type === "diaper");
+  const pendingMed = nextPendingMedicine();
+  els.quickDock.classList.toggle("is-live", Boolean(state.activeFeed));
+  els.dockPrimaryButton.dataset.side = state.activeFeed ? "live" : recommendedSide;
+
+  if (state.activeFeed) {
+    els.dockPrimaryIcon.textContent = "✓";
+    els.dockPrimaryLabel.textContent = "Guardar toma";
+    els.dockPrimaryMeta.textContent = elapsedClock(new Date(state.activeFeed.startISO), new Date());
+  } else {
+    els.dockPrimaryIcon.textContent = dockSideIcon(recommendedSide);
+    els.dockPrimaryLabel.textContent = `Toma ${SIDE_LABELS[recommendedSide].toLowerCase()}`;
+    els.dockPrimaryMeta.textContent = "Siguiente pecho";
+  }
+
+  els.dockDiaperMeta.textContent = diapers.length ? `${diapers.length} pañales hoy` : "Pañal rápido";
+
+  if (pendingMed) {
+    const config = medicineConfig(pendingMed);
+    els.dockMedicineButton.disabled = false;
+    els.dockMedicineButton.dataset.med = pendingMed;
+    els.dockMedicineIcon.textContent = config.short;
+    els.dockMedicineLabel.textContent = config.name.replace(" Reuteri", "");
+    els.dockMedicineMeta.textContent = `${config.dose} pendiente`;
+  } else {
+    els.dockMedicineButton.disabled = true;
+    els.dockMedicineButton.dataset.med = "";
+    els.dockMedicineIcon.textContent = "✓";
+    els.dockMedicineLabel.textContent = "Medicina";
+    els.dockMedicineMeta.textContent = "Lista hoy";
+  }
+}
+
+function handleDockPrimary() {
+  if (state.activeFeed) stopFeed();
+  else startFeed(getRecommendedSide());
+}
+
+function handleDockMedicine() {
+  const pendingMed = nextPendingMedicine();
+  if (!pendingMed) return showToast("Medicinas listas hoy");
+  toggleMedicine(pendingMed);
+}
+
+function nextPendingMedicine(dateKey = todayKey()) {
+  return pendingMedicines(dateKey)[0] || "";
+}
+
+function pendingMedicines(dateKey = todayKey()) {
+  return ["vitaminD", "biogaia"].filter((med) => !isMedicineDone(med, dateKey));
+}
+
+function latestFeedEvent() {
+  return [...state.events].filter((event) => event.type === "feed").sort(byNewest)[0] || null;
+}
+
+function dockSideIcon(side) {
+  if (side === "right") return "→";
+  if (side === "both") return "↔";
+  if (side === "pump") return "⇣";
+  if (side === "snack") return "•";
+  return "←";
+}
+
 function renderTimeline(events) {
   if (!events.length && !state.activeFeed) {
-    els.todayTimeline.innerHTML = `<div class="empty-state">Sin registros hoy</div>`;
+    els.todayTimeline.innerHTML = `
+      <div class="empty-state empty-state--warm">
+        <strong>Hoy empieza limpio</strong>
+        <span>Las tomas, pañales y medicinas aparecerán aquí al guardarlas.</span>
+      </div>
+    `;
     return;
   }
 
@@ -648,9 +855,14 @@ function renderHistory() {
   renderHistorySummary();
 
   if (!groups.length) {
-    els.recentDaysList.innerHTML = `<div class="empty-state">Sin historial</div>`;
+    els.recentDaysList.innerHTML = `
+      <div class="empty-state empty-state--warm">
+        <strong>Sin historial todavía</strong>
+        <span>Cuando registre unos días, aquí verá patrones sin tener que leer una lista infinita.</span>
+      </div>
+    `;
     els.monthArchive.innerHTML = "";
-    els.dayDetailPanel.innerHTML = `<div class="empty-state">Sin día seleccionado</div>`;
+    els.dayDetailPanel.innerHTML = `<div class="empty-state">El detalle aparecerá al elegir un día.</div>`;
     return;
   }
 
@@ -702,6 +914,7 @@ function renderHistorySummary() {
     historySummaryCard("Popó", summary.poopCount, `${summary.peeCount} pis · ${summary.gasCount} gases`),
     historySummaryCard("Último peso", summary.latestWeight ? formatKg(summary.latestWeight.kg) : "—", summary.latestWeight ? dateToHuman(eventDateKey(summary.latestWeight)) : "Sin peso"),
   ].join("");
+  renderRhythmCard();
 }
 
 function historySummaryCard(label, value, meta) {
@@ -711,6 +924,70 @@ function historySummaryCard(label, value, meta) {
       <strong>${escapeHTML(value)}</strong>
       <small>${escapeHTML(meta)}</small>
     </article>
+  `;
+}
+
+function renderRhythmCard() {
+  const keys = lastDays(historyRangeDays);
+  const days = keys.map((key) => {
+    const events = eventsForDate(key);
+    const stats = dayStats(events);
+    return {
+      key,
+      feeds: stats.feeds.length,
+      diapers: stats.diapers.length,
+      meds: stats.meds.length,
+    };
+  });
+  const maxFeeds = Math.max(1, ...days.map((day) => day.feeds));
+  const maxDiapers = Math.max(1, ...days.map((day) => day.diapers));
+  const hasData = days.some((day) => day.feeds || day.diapers || day.meds);
+
+  if (!hasData) {
+    els.rhythmCard.innerHTML = `
+      <div class="rhythm-card__head">
+        <div>
+          <span>Ritmo</span>
+          <h3>Sin datos suficientes</h3>
+        </div>
+        <small>${historyRangeDays} días</small>
+      </div>
+      <div class="empty-state empty-state--compact">El gráfico se llenará solo con los registros.</div>
+    `;
+    return;
+  }
+
+  els.rhythmCard.innerHTML = `
+    <div class="rhythm-card__head">
+      <div>
+        <span>Ritmo</span>
+        <h3>Tomas y pañales por día</h3>
+      </div>
+      <small>${historyRangeDays} días</small>
+    </div>
+    <div class="rhythm-chart" aria-label="Tomas y pañales de los últimos ${historyRangeDays} días">
+      ${days.map((day) => rhythmDay(day, maxFeeds, maxDiapers)).join("")}
+    </div>
+    <div class="rhythm-card__legend">
+      <span><i class="legend-dot legend-dot--feed"></i>Tomas</span>
+      <span><i class="legend-dot legend-dot--diaper"></i>Pañales</span>
+      <span><i class="legend-dot legend-dot--med"></i>Medicina registrada</span>
+    </div>
+  `;
+}
+
+function rhythmDay(day, maxFeeds, maxDiapers) {
+  const feedHeight = Math.max(day.feeds ? 14 : 4, Math.round((day.feeds / maxFeeds) * 72));
+  const diaperHeight = Math.max(day.diapers ? 14 : 4, Math.round((day.diapers / maxDiapers) * 72));
+  return `
+    <div class="rhythm-day" title="${dateToHuman(day.key)} · ${day.feeds} tomas · ${day.diapers} pañales">
+      <div class="rhythm-day__bars">
+        <span class="rhythm-bar rhythm-bar--feed" style="height:${feedHeight}%"></span>
+        <span class="rhythm-bar rhythm-bar--diaper" style="height:${diaperHeight}%"></span>
+      </div>
+      <span class="rhythm-day__label">${dateToShort(day.key)}</span>
+      ${day.meds ? `<span class="rhythm-day__med" aria-label="Medicina registrada">✓</span>` : ""}
+    </div>
   `;
 }
 
@@ -964,6 +1241,8 @@ function buildAlerts(todayEvents) {
 
 function tick() {
   renderActiveFeed();
+  renderSmartInsight();
+  renderDock();
   const latestFeed = [...state.events].filter((event) => event.type === "feed").sort(byNewest)[0];
   if (latestFeed) {
     els.sinceLastFeed.textContent = timeAgo(new Date(latestFeed.endISO || latestFeed.startISO));
@@ -971,9 +1250,18 @@ function tick() {
 }
 
 function setTab(tabName) {
+  activeTab = tabName;
+  document.body.dataset.activeTab = tabName;
   $$("[data-tab]").forEach((screen) => screen.classList.toggle("is-active", screen.dataset.tab === tabName));
   $$("[data-tab-target]").forEach((button) => button.classList.toggle("is-active", button.dataset.tabTarget === tabName));
   if (tabName === "export") renderMarkdown();
+}
+
+function pulseButton(button) {
+  button.classList.remove("is-pressed");
+  void button.offsetWidth;
+  button.classList.add("is-pressed");
+  window.setTimeout(() => button.classList.remove("is-pressed"), 220);
 }
 
 function startFeed(side, offsetMinutes = 0) {

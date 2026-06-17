@@ -11,7 +11,7 @@
     <link rel="icon" href="./app-icon-192.png" type="image/png">
     <link rel="apple-touch-icon" href="./apple-touch-icon.png">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <link rel="stylesheet" href="./styles.css?v=41">
+    <link rel="stylesheet" href="./styles.css?v=42">
   </head>
   <body>
     <div class="app-shell">
@@ -88,11 +88,24 @@
                 <small id="diaperBreakdown">Sin pañales</small>
               </article>
             </div>
+            <div class="smart-cockpit" id="smartCockpit" aria-live="polite">
+              <div class="smart-cockpit__copy">
+                <span class="smart-cockpit__eyebrow">Ritmo de hoy</span>
+                <h3 id="smartInsightTitle">Lista para empezar</h3>
+                <p id="smartInsightBody">Cuando Federico empiece, toca el pecho recomendado y la app cuenta por ti.</p>
+              </div>
+              <div class="smart-cockpit__pills">
+                <span class="smart-pill" id="feedGapPill">Toma —</span>
+                <span class="smart-pill" id="diaperGapPill">Pañales —</span>
+                <span class="smart-pill" id="medicinePill">Medicina —</span>
+              </div>
+            </div>
             <div class="alert-stack" id="alertStack" aria-live="polite"></div>
           </section>
 
           <section class="active-feed" id="activeFeedPanel" hidden aria-live="polite">
             <div class="active-feed__main">
+              <div class="active-feed__pulse" aria-hidden="true"><span></span></div>
               <div class="active-feed__meta">
                 <span class="live-dot" aria-hidden="true"></span>
                 <span id="activeFeedSide">Toma en curso</span>
@@ -262,6 +275,7 @@
               </div>
             </div>
             <div class="history-summary-grid" id="historySummaryGrid"></div>
+            <div class="rhythm-card" id="rhythmCard"></div>
             <div class="history-filter-row" aria-label="Filtrar historial">
               <button class="chip is-active" data-history-filter="all" type="button">Todo</button>
               <button class="chip" data-history-filter="feed" type="button">Tomas</button>
@@ -316,13 +330,25 @@
             </div>
           </section>
           <section class="export-band">
-            <p class="backup-line" id="backupStatus">Guardado en este teléfono</p>
-            <div class="export-actions">
-              <button class="primary-button" id="shareMarkdownButton" type="button">Compartir</button>
-              <button class="secondary-button" id="copyMarkdownButton" type="button">Copiar</button>
-              <button class="secondary-button" id="downloadMarkdownButton" type="button">Descargar</button>
+            <div class="export-band__head">
+              <div>
+                <p class="backup-line" id="backupStatus">Guardado en este teléfono</p>
+                <h2>Resumen legible</h2>
+                <p>Para mandar por WhatsApp, guardar en Notas o compartir con el pediatra.</p>
+              </div>
             </div>
-            <textarea id="markdownPreview" spellcheck="false" readonly></textarea>
+            <details class="export-advanced" open>
+              <summary>
+                <span>Vista de exportación</span>
+                <small>Markdown actualizado con todos los registros</small>
+              </summary>
+              <div class="export-actions">
+                <button class="primary-button" id="shareMarkdownButton" type="button">Compartir</button>
+                <button class="secondary-button" id="copyMarkdownButton" type="button">Copiar</button>
+                <button class="secondary-button" id="downloadMarkdownButton" type="button">Descargar</button>
+              </div>
+              <textarea id="markdownPreview" spellcheck="false" readonly></textarea>
+            </details>
           </section>
         </section>
 
@@ -384,34 +410,66 @@
             </section>
             <button class="primary-button" type="submit">Guardar ajustes</button>
           </form>
-          <section class="import-zone">
-            <div>
-              <h2>Notas antiguas</h2>
-              <p class="import-zone__meta" id="importNotesMeta">Listo para importar</p>
+          <details class="advanced-settings">
+            <summary>
+              <span>Avanzado</span>
+              <small>Importar, restaurar, instalación y datos</small>
+            </summary>
+            <div class="advanced-settings__content">
+              <section class="import-zone">
+                <div>
+                  <h2>Notas antiguas</h2>
+                  <p class="import-zone__meta" id="importNotesMeta">Listo para importar</p>
+                </div>
+                <button class="primary-button" id="importNotesButton" type="button">Importar notas</button>
+              </section>
+              <section class="import-zone">
+                <div>
+                  <h2>Restaurar respaldo</h2>
+                  <p class="import-zone__meta" id="restoreBackupMeta">Usa un .json exportado por esta app</p>
+                </div>
+                <input class="restore-input" id="restoreBackupInput" type="file" accept=".json,application/json">
+                <button class="primary-button" id="restoreBackupButton" type="button">Restaurar</button>
+              </section>
+              <section class="import-zone app-status-zone">
+                <div>
+                  <h2>Modo app</h2>
+                  <p class="import-zone__meta" id="appInstallStatus">Comprobando instalación</p>
+                </div>
+                <span class="app-version-pill" id="appVersionStatus">v42</span>
+              </section>
+              <section class="danger-zone">
+                <button class="secondary-button" id="seedButton" type="button">Cargar ejemplo</button>
+                <button class="secondary-button secondary-button--danger" id="clearButton" type="button">Borrar datos</button>
+              </section>
             </div>
-            <button class="primary-button" id="importNotesButton" type="button">Importar notas</button>
-          </section>
-          <section class="import-zone">
-            <div>
-              <h2>Restaurar respaldo</h2>
-              <p class="import-zone__meta" id="restoreBackupMeta">Usa un .json exportado por esta app</p>
-            </div>
-            <input class="restore-input" id="restoreBackupInput" type="file" accept=".json,application/json">
-            <button class="primary-button" id="restoreBackupButton" type="button">Restaurar</button>
-          </section>
-          <section class="import-zone app-status-zone">
-            <div>
-              <h2>Modo app</h2>
-              <p class="import-zone__meta" id="appInstallStatus">Comprobando instalación</p>
-            </div>
-            <span class="app-version-pill" id="appVersionStatus">v41</span>
-          </section>
-          <section class="danger-zone">
-            <button class="secondary-button" id="seedButton" type="button">Cargar ejemplo</button>
-            <button class="secondary-button secondary-button--danger" id="clearButton" type="button">Borrar datos</button>
-          </section>
+          </details>
         </section>
       </main>
+
+      <div class="quick-dock" id="quickDock" aria-label="Acciones rápidas">
+        <button class="dock-button dock-button--primary" id="dockPrimaryButton" type="button">
+          <span class="dock-button__icon" id="dockPrimaryIcon" aria-hidden="true">←</span>
+          <span>
+            <strong id="dockPrimaryLabel">Toma izquierda</strong>
+            <small id="dockPrimaryMeta">Siguiente pecho</small>
+          </span>
+        </button>
+        <button class="dock-button" id="dockDiaperButton" type="button">
+          <span class="dock-button__icon" aria-hidden="true">💧</span>
+          <span>
+            <strong>Pis</strong>
+            <small id="dockDiaperMeta">Pañal rápido</small>
+          </span>
+        </button>
+        <button class="dock-button" id="dockMedicineButton" type="button">
+          <span class="dock-button__icon" id="dockMedicineIcon" aria-hidden="true">D</span>
+          <span>
+            <strong id="dockMedicineLabel">Vitamina</strong>
+            <small id="dockMedicineMeta">Pendiente</small>
+          </span>
+        </button>
+      </div>
 
       <nav class="bottom-nav" aria-label="Navegacion principal">
         <button class="nav-button is-active" data-tab-target="today">
@@ -607,6 +665,6 @@
     </dialog>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
-    <script src="./app.js?v=41" type="module"></script>
+    <script src="./app.js?v=42" type="module"></script>
   </body>
 </html>

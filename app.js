@@ -1,7 +1,7 @@
 import { HISTORICAL_IMPORT } from "./historical-data.js?v=23";
 
 const STORAGE_KEY = "fede-baby-tracker-v3";
-const APP_VERSION = "v55";
+const APP_VERSION = "v56";
 const BACKUP_VERSION = 1;
 const APP_VERSION_KEY = `${STORAGE_KEY}-app-version`;
 const LOVE_MESSAGES_PIN = "1234";
@@ -1311,10 +1311,11 @@ function logNote(text) {
 function addDiaperDetail(detail) {
   const today = todayKey();
   const latestDiaper = state.events
-    .filter((event) => event.type === "diaper" && eventDateKey(event) === today)
+    .filter((event) => event.type === "diaper" && event.poop && eventDateKey(event) === today)
     .sort(byNewest)[0];
   if (!latestDiaper) {
-    logNote(`Pañal: ${detail}`);
+    haptic("soft");
+    showToast("Primero registra popó");
     return;
   }
   const before = structuredClone(latestDiaper);

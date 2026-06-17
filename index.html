@@ -11,7 +11,7 @@
     <link rel="icon" href="./app-icon-192.png" type="image/png">
     <link rel="apple-touch-icon" href="./apple-touch-icon.png">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <link rel="stylesheet" href="./styles.css?v=55">
+    <link rel="stylesheet" href="./styles.css?v=56">
   </head>
   <body>
     <div class="app-shell">
@@ -170,6 +170,21 @@
                 <strong>Mixto</strong>
               </button>
             </div>
+            <details class="diaper-detail-panel" aria-label="Detalles de popó">
+              <summary class="diaper-detail-summary">
+                <span>Detalle de popó</span>
+                <small>Opcional después de registrar</small>
+              </summary>
+              <div class="diaper-detail-content">
+                <div class="chip-row chip-row--diaper" aria-label="Detalles de popó">
+                  <button class="chip" data-diaper-detail="aguado" type="button">Aguado</button>
+                  <button class="chip" data-diaper-detail="moco" type="button">Con moco</button>
+                  <button class="chip" data-diaper-detail="mucho" type="button">Mucho</button>
+                  <button class="chip" data-diaper-detail="poquito" type="button">Poquito</button>
+                  <button class="chip" data-diaper-detail="le costó" type="button">Le costó</button>
+                </div>
+              </div>
+            </details>
           </section>
 
           <section class="medicine-hub" aria-label="Medicinas">
@@ -207,21 +222,12 @@
               <small>Agregar algo pasado o detalles</small>
             </summary>
             <div class="quick-log-content">
-            <div class="section-heading">
-              <h2>Corregir o completar</h2>
-              <button class="tiny-command" id="manualButton" type="button">Manual</button>
-            </div>
-              <div class="quick-section quick-pane--diaper">
-                <div class="quick-section__head">
-                  <span>Detalles pañal</span>
+              <div class="manual-shortcut-card">
+                <div>
+                  <h2>Agregar registro pasado</h2>
+                  <p>Toma, pañal, medicina, peso o nota con fecha y hora.</p>
                 </div>
-                <div class="chip-row chip-row--diaper" aria-label="Detalles de pañal">
-                  <button class="chip" data-diaper-detail="aguado" type="button">popó aguado</button>
-                  <button class="chip" data-diaper-detail="moco" type="button">con moco</button>
-                  <button class="chip" data-diaper-detail="mucho" type="button">mucho</button>
-                  <button class="chip" data-diaper-detail="poquito" type="button">poquito</button>
-                  <button class="chip" data-diaper-detail="le costó" type="button">le costó</button>
-                </div>
+                <button class="tiny-command" id="manualButton" type="button">Abrir manual</button>
               </div>
             </div>
           </details>
@@ -402,7 +408,7 @@
                   <h2>Modo app</h2>
                   <p class="import-zone__meta" id="appInstallStatus">Comprobando instalación</p>
                 </div>
-                <span class="app-version-pill" id="appVersionStatus">v55</span>
+                <span class="app-version-pill" id="appVersionStatus">v56</span>
               </section>
               <section class="settings-secret" id="loveMessagesSecret">
                 <div class="settings-secret__locked" id="loveMessagesLockedPanel">
@@ -637,6 +643,6 @@
     </dialog>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
-    <script src="./app.js?v=55" type="module"></script>
+    <script src="./app.js?v=56" type="module"></script>
   </body>
 </html>

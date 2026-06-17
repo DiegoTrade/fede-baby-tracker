@@ -1072,7 +1072,7 @@ body.has-active-feed .active-feed {
 }
 
 .diaper-grid {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .diaper-button {
@@ -1131,11 +1131,10 @@ body.has-active-feed .active-feed {
   color: var(--muted);
 }
 
-.medicine-row,
 .medicine-checklist {
   margin-top: 12px;
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
   gap: 10px;
 }
 
@@ -1194,6 +1193,91 @@ body.has-active-feed .active-feed {
 
 .medicine-card--bio {
   background: var(--sun-soft);
+}
+
+.medicine-settings-list {
+  display: grid;
+  gap: 8px;
+}
+
+.medicine-setting-card {
+  border-radius: var(--radius);
+  border: 1px solid rgba(37, 40, 36, 0.12);
+  background: rgba(255, 253, 248, 0.76);
+  padding: 10px;
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) 118px minmax(94px, auto) auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.medicine-setting-card__main {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr);
+  gap: 9px;
+  align-items: center;
+}
+
+.medicine-setting-card__mark {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--sun-soft);
+  color: #6a7600;
+  display: grid;
+  place-items: center;
+  font-weight: 950;
+}
+
+.medicine-setting-card strong,
+.medicine-setting-card small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.medicine-setting-card small {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 830;
+  text-transform: uppercase;
+}
+
+.medicine-add-card {
+  margin-top: 10px;
+  border-radius: var(--radius);
+  border: 1px solid rgba(0, 166, 118, 0.18);
+  background:
+    linear-gradient(135deg, rgba(255, 253, 248, 0.9), rgba(221, 248, 238, 0.58)),
+    rgba(255, 253, 248, 0.8);
+  padding: 12px;
+  display: grid;
+  grid-template-columns: minmax(150px, 1.2fr) minmax(110px, 0.8fr) 110px minmax(98px, auto) auto auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.medicine-reminder-toggle {
+  min-height: 46px;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  background: rgba(255, 253, 248, 0.74);
+  padding: 0 10px;
+  display: flex !important;
+  grid-template-columns: none;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-weight: 850;
+}
+
+.medicine-reminder-toggle input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--left);
 }
 
 .timeline {
@@ -1927,7 +2011,7 @@ body.has-active-feed .active-feed {
 .settings-form {
   display: grid;
   gap: 14px;
-  max-width: 520px;
+  max-width: 720px;
 }
 
 .advanced-settings {
@@ -2456,6 +2540,9 @@ body.night-mode .export-advanced,
 body.night-mode .segmented-action,
 body.night-mode .diaper-button,
 body.night-mode .medicine-card,
+body.night-mode .medicine-setting-card,
+body.night-mode .medicine-add-card,
+body.night-mode .medicine-reminder-toggle,
 body.night-mode .history-day,
 body.night-mode .secondary-button,
 body.night-mode .ghost-command,
@@ -2688,7 +2775,7 @@ body.night-mode .vitamin-toggle[aria-pressed="true"] span:last-child {
   }
 
   .diaper-grid {
-    grid-template-columns: repeat(4, minmax(72px, 1fr));
+    grid-template-columns: repeat(3, minmax(72px, 1fr));
     overflow-x: auto;
     padding-bottom: 2px;
   }
@@ -2747,6 +2834,12 @@ body.night-mode .vitamin-toggle[aria-pressed="true"] span:last-child {
 
   .manual-type-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .medicine-setting-card,
+  .medicine-add-card {
+    grid-template-columns: 1fr;
+    align-items: stretch;
   }
 }
 
@@ -2848,7 +2941,6 @@ body.night-mode .vitamin-toggle[aria-pressed="true"] span:last-child {
     grid-template-columns: 1fr;
   }
 
-  .medicine-row,
   .medicine-checklist {
     grid-template-columns: 1fr;
   }

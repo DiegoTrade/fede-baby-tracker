@@ -1,7 +1,7 @@
 import { HISTORICAL_IMPORT } from "./historical-data.js?v=23";
 
 const STORAGE_KEY = "fede-baby-tracker-v3";
-const APP_VERSION = "v51";
+const APP_VERSION = "v52";
 const BACKUP_VERSION = 1;
 const APP_VERSION_KEY = `${STORAGE_KEY}-app-version`;
 const LOVE_MESSAGES_PIN = "1234";
@@ -45,20 +45,28 @@ const TAG_ICON = {
   vomit: "🤮",
 };
 
-const MEDICINES = {
-  vitaminD: {
+const DEFAULT_MEDICINES = [
+  {
+    id: "vitaminD",
     short: "D",
     name: "Vitamina D",
     dose: "2 gotas",
+    time: "09:00",
+    reminder: true,
     toast: "Vitamina D lista",
   },
-  biogaia: {
+  {
+    id: "biogaia",
     short: "B",
     name: "BioGaia Reuteri",
     dose: "5 gotas",
+    time: "09:00",
+    reminder: true,
     toast: "BioGaia listo",
   },
-};
+];
+
+const MEDICINES = Object.fromEntries(DEFAULT_MEDICINES.map((medicine) => [medicine.id, medicine]));
 
 const LOVE_NOTE_EMOJIS = ["💛", "💖", "💕", "❤️", "🫶", "💗"];
 
@@ -89,12 +97,14 @@ const DEFAULT_STATE = {
     vitaminTime: "09:00",
     colicMedicineName: "BioGaia Reuteri",
     colicDose: "5 gotas",
+    medicines: DEFAULT_MEDICINES.map((medicine) => ({ ...medicine })),
     nightMode: false,
     loveMessages: [...LOVE_NOTES],
   },
   events: [],
   vitaminDByDate: {},
   imports: {},
+  medicineReminderNotified: {},
   loveNotesSeen: {},
   lastExportISO: "",
   activeFeed: null,
@@ -124,10 +134,7 @@ const els = {
   feedCount: $("#feedCount"),
   diaperCount: $("#diaperCount"),
   diaperBreakdown: $("#diaperBreakdown"),
-  vitaminChecklistMeta: $("#vitaminChecklistMeta"),
-  bioGaiaChecklistMeta: $("#bioGaiaChecklistMeta"),
-  vitaminCardButton: $("#vitaminCardButton"),
-  bioGaiaCardButton: $("#bioGaiaCardButton"),
+  medicineChecklist: $("#medicineChecklist"),
   recommendedStartButton: $("#recommendedStartButton"),
   trustLine: $("#trustLine"),
   alertStack: $("#alertStack"),
@@ -168,9 +175,14 @@ const els = {
   settingsForm: $("#settingsForm"),
   babyNameInput: $("#babyNameInput"),
   birthDateInput: $("#birthDateInput"),
-  vitaminTimeInput: $("#vitaminTimeInput"),
-  colicMedicineInput: $("#colicMedicineInput"),
-  colicDoseInput: $("#colicDoseInput"),
+  medicineSettingsList: $("#medicineSettingsList"),
+  medicineReminderStatus: $("#medicineReminderStatus"),
+  medicineNameInput: $("#medicineNameInput"),
+  medicineDoseInput: $("#medicineDoseInput"),
+  medicineTimeInput: $("#medicineTimeInput"),
+  medicineReminderInput: $("#medicineReminderInput"),
+  addMedicineButton: $("#addMedicineButton"),
+  enableNotificationsButton: $("#enableNotificationsButton"),
   loveMessagesSecret: $("#loveMessagesSecret"),
   loveMessagesLockedPanel: $("#loveMessagesLockedPanel"),
   loveMessagesPinInput: $("#loveMessagesPinInput"),
@@ -286,8 +298,8 @@ function bindEvents() {
   els.stopFeedButton.addEventListener("click", stopFeed);
   els.cancelFeedButton.addEventListener("click", cancelFeed);
   els.nightModeButton.addEventListener("click", toggleNightMode);
-  els.vitaminCardButton.addEventListener("click", () => toggleMedicine("vitaminD"));
-  els.bioGaiaCardButton.addEventListener("click", () => toggleMedicine("biogaia"));
+  els.addMedicineButton.addEventListener("click", addMedicineFromSettings);
+  els.enableNotificationsButton.addEventListener("click", requestMedicineNotifications);
 
   els.noteForm.addEventListener("submit", (event) => {
     event.preventDefault();
@@ -329,9 +341,6 @@ function bindEvents() {
     event.preventDefault();
     state.settings.babyName = els.babyNameInput.value.trim() || DEFAULT_STATE.settings.babyName;
     state.settings.birthDate = els.birthDateInput.value || DEFAULT_STATE.settings.birthDate;
-    state.settings.vitaminTime = els.vitaminTimeInput.value || DEFAULT_STATE.settings.vitaminTime;
-    state.settings.colicMedicineName = els.colicMedicineInput.value.trim() || DEFAULT_STATE.settings.colicMedicineName;
-    state.settings.colicDose = els.colicDoseInput.value.trim() || DEFAULT_STATE.settings.colicDose;
     state.settings.loveMessages = parseLoveMessagesInput(els.loveMessagesInput.value);
     saveState();
     render();
@@ -385,9 +394,32 @@ function bindEvents() {
     input.addEventListener("change", renderEditPreview);
   });
 
+  document.addEventListener("change", (event) => {
+    const timeInput = event.target.closest("[data-medicine-time]");
+    if (timeInput) {
+      updateMedicineSetting(timeInput.dataset.medicineTime, { time: timeInput.value });
+      return;
+    }
+    const reminderInput = event.target.closest("[data-medicine-reminder]");
+    if (reminderInput) {
+      updateMedicineSetting(reminderInput.dataset.medicineReminder, { reminder: reminderInput.checked });
+    }
+  });
+
   document.addEventListener("click", (event) => {
     const pressedButton = event.target.closest("button");
     if (pressedButton) pulseButton(pressedButton);
+
+    const medicineButton = event.target.closest("[data-toggle-med]");
+    if (medicineButton) {
+      toggleMedicine(medicineButton.dataset.toggleMed);
+      return;
+    }
+    const removeMedicineButton = event.target.closest("[data-remove-medicine]");
+    if (removeMedicineButton) {
+      removeMedicine(removeMedicineButton.dataset.removeMedicine);
+      return;
+    }
 
     const historyDateButton = event.target.closest("[data-history-date]");
     if (historyDateButton) {
@@ -456,11 +488,16 @@ function normalizeState(saved = {}) {
       ...base.loveNotesSeen,
       ...(isPlainObject(source.loveNotesSeen) ? source.loveNotesSeen : {}),
     },
+    medicineReminderNotified: {
+      ...base.medicineReminderNotified,
+      ...(isPlainObject(source.medicineReminderNotified) ? source.medicineReminderNotified : {}),
+    },
     vitaminDByDate: isPlainObject(source.vitaminDByDate) ? source.vitaminDByDate : {},
     events: Array.isArray(source.events) ? source.events.filter(Boolean) : [],
     activeFeed: isPlainObject(source.activeFeed) ? source.activeFeed : null,
     lastExportISO: typeof source.lastExportISO === "string" ? source.lastExportISO : "",
   };
+  next.settings.medicines = normalizeMedicines(next.settings.medicines, next.settings);
   next.settings.loveMessages = normalizeLoveMessages(next.settings.loveMessages);
   return next;
 }
@@ -504,26 +541,20 @@ function render() {
   els.sinceLastFeed.textContent = latestFeed ? timeAgo(new Date(latestFeed.endISO || latestFeed.startISO)) : "—";
   els.lastFeedStamp.textContent = latestFeed ? `Última ${formatTime(new Date(latestFeed.endISO || latestFeed.startISO))}` : "Sin toma hoy";
 
-  const vitaminDone = isMedicineDone("vitaminD", today);
-  const bioGaiaDone = isMedicineDone("biogaia", today);
-  els.vitaminCardButton.classList.toggle("is-done", vitaminDone);
-  els.bioGaiaCardButton.classList.toggle("is-done", bioGaiaDone);
-  els.vitaminChecklistMeta.textContent = medicineChecklistMeta("vitaminD", vitaminDone);
-  els.bioGaiaChecklistMeta.textContent = medicineChecklistMeta("biogaia", bioGaiaDone);
-  els.bioGaiaCardButton.querySelector("strong").textContent = state.settings.colicMedicineName.replace(" Reuteri", "");
   els.trustLine.textContent = "Guardado en este teléfono";
 
   els.babyNameInput.value = state.settings.babyName;
   els.birthDateInput.value = state.settings.birthDate;
-  els.vitaminTimeInput.value = state.settings.vitaminTime;
-  els.colicMedicineInput.value = state.settings.colicMedicineName;
-  els.colicDoseInput.value = state.settings.colicDose;
   els.loveMessagesInput.value = loveNoteMessages().join("\n");
   renderLoveMessagesSecret();
   els.backupStatus.textContent = backupStatusText();
   els.restoreBackupMeta.textContent = `Reemplaza los datos locales · ${pluralize(state.events.length, "registro", "registros")} actuales`;
   renderAppInstallStatus();
   renderImportStatus();
+  renderMedicineChecklist();
+  renderMedicineOptions();
+  renderMedicineSettings();
+  renderMedicineNotificationStatus();
 
   renderActiveFeed();
   els.alertStack.innerHTML = "";
@@ -575,6 +606,101 @@ function renderActiveFeed() {
   els.activeFeedTimer.textContent = elapsedClock(new Date(state.activeFeed.startISO), new Date());
 }
 
+function renderMedicineChecklist() {
+  const medicines = medicineList();
+  if (!medicines.length) {
+    els.medicineChecklist.innerHTML = `
+      <div class="empty-state empty-state--warm">
+        <strong>Sin medicinas</strong>
+        <span>Agrega la medicina en Ajustes y aparecerá aquí.</span>
+      </div>
+    `;
+    return;
+  }
+
+  els.medicineChecklist.innerHTML = medicines.map((medicine) => {
+    const done = isMedicineDone(medicine.id, todayKey());
+    const cardClass = [
+      "medicine-card",
+      medicine.id === "biogaia" ? "medicine-card--bio" : "",
+      done ? "is-done" : "",
+    ].filter(Boolean).join(" ");
+    return `
+      <button class="${cardClass}" data-toggle-med="${escapeHTML(medicine.id)}" type="button">
+        <span class="medicine-card__mark" aria-hidden="true">${done ? "✓" : escapeHTML(medicine.short)}</span>
+        <strong>${escapeHTML(displayMedicineName(medicine.name))}</strong>
+        <small>${escapeHTML(medicineChecklistMeta(medicine.id, done))}</small>
+      </button>
+    `;
+  }).join("");
+}
+
+function renderMedicineOptions() {
+  const medicines = allMedicineConfigs();
+  const options = medicines.length
+    ? medicines.map((medicine) => `<option value="${escapeHTML(medicine.id)}">${escapeHTML(`${medicine.name} · ${medicine.dose}`)}</option>`).join("")
+    : '<option value="">Sin medicinas</option>';
+  els.manualMedicine.innerHTML = options;
+  els.editMedicine.innerHTML = options;
+}
+
+function renderMedicineSettings() {
+  const medicines = medicineList();
+  els.medicineSettingsList.innerHTML = medicines.length
+    ? medicines.map((medicine) => `
+      <article class="medicine-setting-card">
+        <div class="medicine-setting-card__main">
+          <span class="medicine-setting-card__mark" aria-hidden="true">${escapeHTML(medicine.short)}</span>
+          <div>
+            <strong>${escapeHTML(medicine.name)}</strong>
+            <small>${escapeHTML(medicine.dose)}${medicine.time ? ` · ${escapeHTML(formatTimeFromValue(medicine.time))}` : ""}</small>
+          </div>
+        </div>
+        <label>
+          <span>Hora</span>
+          <input data-medicine-time="${escapeHTML(medicine.id)}" type="time" value="${escapeHTML(medicine.time || "")}">
+        </label>
+        <label class="medicine-reminder-toggle">
+          <input data-medicine-reminder="${escapeHTML(medicine.id)}" type="checkbox" ${medicine.reminder ? "checked" : ""}>
+          <span>Recordar</span>
+        </label>
+        <button class="tiny-command" data-remove-medicine="${escapeHTML(medicine.id)}" type="button">Quitar</button>
+      </article>
+    `).join("")
+    : `
+      <div class="empty-state empty-state--warm">
+        <strong>No hay medicinas activas</strong>
+        <span>Agrega una para verla en la checklist diaria.</span>
+      </div>
+    `;
+}
+
+function renderMedicineNotificationStatus() {
+  if (!("Notification" in window)) {
+    els.medicineReminderStatus.textContent = "Avisos no disponibles";
+    els.enableNotificationsButton.disabled = true;
+    els.enableNotificationsButton.textContent = "Sin avisos";
+    return;
+  }
+
+  const permission = Notification.permission;
+  if (permission === "granted") {
+    els.medicineReminderStatus.textContent = "Avisos activos";
+    els.enableNotificationsButton.disabled = true;
+    els.enableNotificationsButton.textContent = "Avisos activos";
+    return;
+  }
+  if (permission === "denied") {
+    els.medicineReminderStatus.textContent = "Avisos bloqueados";
+    els.enableNotificationsButton.disabled = true;
+    els.enableNotificationsButton.textContent = "Bloqueados";
+    return;
+  }
+  els.medicineReminderStatus.textContent = "Avisos opcionales";
+  els.enableNotificationsButton.disabled = false;
+  els.enableNotificationsButton.textContent = "Permitir avisos";
+}
+
 function renderTimeline(events) {
   if (!events.length && !state.activeFeed) {
     els.todayTimeline.innerHTML = `
@@ -617,7 +743,7 @@ function eventIcon(event) {
   if (event.type === "feed") return SIDE_SHORT[event.side];
   if (event.type === "diaper") return diaperIcon(event);
   if (event.type === "weight") return "kg";
-  if (event.type === "med") return medicineConfig(event.med).short;
+  if (event.type === "med") return event.short || medicineConfig(event.med).short;
   return "＋";
 }
 
@@ -625,7 +751,7 @@ function eventTitle(event) {
   if (event.type === "feed") return `Toma · ${feedSideStory(event)}`;
   if (event.type === "diaper") return `Pañal · ${diaperLabel(event)}`;
   if (event.type === "weight") return `Peso · ${formatKg(event.kg)}`;
-  if (event.type === "med") return medicineConfig(event.med).name;
+  if (event.type === "med") return event.name || medicineConfig(event.med).name;
   return event.text || "Nota";
 }
 
@@ -1040,8 +1166,12 @@ function buildAlerts(todayEvents) {
     const minutes = Math.floor((Date.now() - new Date(latestFeed.endISO || latestFeed.startISO).getTime()) / 60000);
     if (minutes >= 180) alerts.push({ tone: "quiet", label: "Toma", text: `Última toma hace ${timeAgo(new Date(latestFeed.endISO || latestFeed.startISO))}` });
   }
-  if (!isMedicineDone("vitaminD", today)) alerts.push({ tone: "care", label: "Pendiente", text: "Vitamina D" });
-  if (!isMedicineDone("biogaia", today)) alerts.push({ tone: "care", label: "Pendiente", text: `${state.settings.colicMedicineName.replace(" Reuteri", "")} · ${state.settings.colicDose}` });
+  medicineList()
+    .filter((medicine) => !isMedicineDone(medicine.id, today))
+    .slice(0, 2)
+    .forEach((medicine) => {
+      alerts.push({ tone: "care", label: "Pendiente", text: `${displayMedicineName(medicine.name)} · ${medicine.dose}` });
+    });
   const diaperCount = todayEvents.filter((event) => event.type === "diaper").length;
   const hour = new Date().getHours();
   if (hour >= 18 && diaperCount < 4) alerts.push({ tone: "quiet", label: "Pañales", text: `${diaperCount} registrados hoy` });
@@ -1050,6 +1180,7 @@ function buildAlerts(todayEvents) {
 
 function tick() {
   renderActiveFeed();
+  maybeNotifyMedicineReminders();
   const latestFeed = [...state.events].filter((event) => event.type === "feed").sort(byNewest)[0];
   if (latestFeed) {
     els.sinceLastFeed.textContent = timeAgo(new Date(latestFeed.endISO || latestFeed.startISO));
@@ -1192,6 +1323,80 @@ function addDiaperDetail(detail) {
   });
 }
 
+function addMedicineFromSettings() {
+  const name = els.medicineNameInput.value.trim();
+  const dose = els.medicineDoseInput.value.trim() || "Dosis";
+  const time = els.medicineTimeInput.value || "09:00";
+  const reminder = els.medicineReminderInput.checked;
+  if (!name) {
+    els.medicineNameInput.focus();
+    showToast("Falta el nombre");
+    return;
+  }
+
+  const medicines = medicineList();
+  const baseId = medicineIdFromName(name);
+  let id = baseId;
+  let suffix = 2;
+  while (medicines.some((medicine) => medicine.id === id)) {
+    id = `${baseId}-${suffix}`;
+    suffix += 1;
+  }
+
+  state.settings.medicines = [
+    ...medicines,
+    {
+      id,
+      short: medicineShort(name),
+      name,
+      dose,
+      time,
+      reminder,
+      toast: `${displayMedicineName(name)} lista`,
+    },
+  ];
+  els.medicineNameInput.value = "";
+  els.medicineDoseInput.value = "";
+  els.medicineTimeInput.value = time;
+  els.medicineReminderInput.checked = true;
+  saveState();
+  render();
+  haptic("save");
+  showToast(`${displayMedicineName(name)} agregada`);
+}
+
+function updateMedicineSetting(id, updates) {
+  const medicines = medicineList();
+  const index = medicines.findIndex((medicine) => medicine.id === id);
+  if (index < 0) return;
+  medicines[index] = normalizeMedicine({ ...medicines[index], ...updates });
+  state.settings.medicines = medicines;
+  saveState();
+  renderMedicineChecklist();
+  renderMedicineSettings();
+  renderMedicineNotificationStatus();
+  haptic("tap");
+}
+
+function removeMedicine(id) {
+  const medicines = medicineList();
+  const medicine = medicines.find((item) => item.id === id);
+  if (!medicine) return;
+  if (medicines.length <= 1) {
+    showToast("Deja al menos una medicina");
+    return;
+  }
+  state.settings.medicines = medicines.filter((item) => item.id !== id);
+  saveState();
+  render();
+  haptic("soft");
+  showToast(`${displayMedicineName(medicine.name)} quitada`, () => {
+    state.settings.medicines = medicines;
+    saveState();
+    render();
+  });
+}
+
 function toggleMedicine(med) {
   const today = todayKey();
   const existing = medicineEvent(med, today);
@@ -1200,6 +1405,7 @@ function toggleMedicine(med) {
     const removed = structuredClone(existing);
     state.events = state.events.filter((event) => event.id !== existing.id);
     if (med === "vitaminD") delete state.vitaminDByDate[today];
+    if (state.medicineReminderNotified) delete state.medicineReminderNotified[`${today}-${med}`];
     saveState();
     render();
     haptic("soft");
@@ -1219,6 +1425,8 @@ function toggleMedicine(med) {
     id: makeId(),
     type: "med",
     med,
+    name: config.name,
+    short: config.short,
     timeISO: now.toISOString(),
     dose: config.dose,
     note: "",
@@ -1234,6 +1442,7 @@ function addEvent(event, message) {
   showToast(message, () => {
     state.events = state.events.filter((item) => item.id !== event.id);
     if (event.type === "med" && event.med === "vitaminD") delete state.vitaminDByDate[eventDateKey(event)];
+    if (event.type === "med" && state.medicineReminderNotified) delete state.medicineReminderNotified[`${eventDateKey(event)}-${event.med}`];
     if (loveNote?.key) delete state.loveNotesSeen[loveNote.key];
     saveState();
     render();
@@ -1334,6 +1543,8 @@ function saveManualEvent(event) {
       id: makeId(),
       type: "med",
       med,
+      name: config.name,
+      short: config.short,
       timeISO: baseDate.toISOString(),
       dose: config.dose,
       note,
@@ -1453,6 +1664,8 @@ function saveEditedEvent(event) {
     const config = medicineConfig(els.editMedicine.value);
     original.timeISO = baseDate.toISOString();
     original.med = els.editMedicine.value;
+    original.name = config.name;
+    original.short = config.short;
     original.dose = config.dose;
     original.note = note;
   } else if (original.type === "weight") {
@@ -1783,16 +1996,89 @@ function activeFeedHintText() {
   return tags ? `${base} · ${tags}` : base;
 }
 
+function medicineList() {
+  return normalizeMedicines(state.settings?.medicines, state.settings);
+}
+
+function allMedicineConfigs() {
+  const map = new Map(medicineList().map((medicine) => [medicine.id, medicine]));
+  state.events
+    .filter((event) => event.type === "med" && event.med && !map.has(event.med))
+    .forEach((event) => {
+      map.set(event.med, {
+        ...medicineConfig(event.med),
+        name: event.name || medicineConfig(event.med).name,
+        short: event.short || medicineConfig(event.med).short,
+        dose: event.dose || medicineConfig(event.med).dose,
+      });
+    });
+  return Array.from(map.values());
+}
+
+function normalizeMedicines(source, settings = {}) {
+  const defaultMedicines = DEFAULT_MEDICINES.map((medicine) => {
+    if (medicine.id === "vitaminD") {
+      return {
+        ...medicine,
+        time: settings.vitaminTime || medicine.time,
+      };
+    }
+    if (medicine.id === "biogaia") {
+      return {
+        ...medicine,
+        name: settings.colicMedicineName || medicine.name,
+        dose: settings.colicDose || medicine.dose,
+      };
+    }
+    return { ...medicine };
+  });
+  const sourceMedicines = Array.isArray(source) && source.length ? source : defaultMedicines;
+  const seen = new Set();
+  const normalized = sourceMedicines
+    .map((medicine) => normalizeMedicine(medicine, settings))
+    .filter((medicine) => {
+      if (!medicine.name || seen.has(medicine.id)) return false;
+      seen.add(medicine.id);
+      return true;
+    })
+    .slice(0, 12);
+  return normalized.length ? normalized : defaultMedicines;
+}
+
+function normalizeMedicine(medicine = {}, settings = {}) {
+  const fallback = MEDICINES[medicine.id] || {};
+  const name = String(medicine.name || fallback.name || "Medicina").trim().slice(0, 48);
+  const dose = String(medicine.dose || fallback.dose || "Dosis").trim().slice(0, 40);
+  let id = String(medicine.id || medicineIdFromName(name)).trim();
+  id = id.replace(/[^a-zA-Z0-9_-]/g, "-").replace(/-+/g, "-").replace(/^-+|-+$/g, "") || medicineIdFromName(name);
+  if (id === "vitaminD" && settings.vitaminTime && !medicine.time) medicine.time = settings.vitaminTime;
+  if (id === "biogaia") {
+    if (settings.colicMedicineName && name === MEDICINES.biogaia.name) medicine.name = settings.colicMedicineName;
+    if (settings.colicDose && dose === MEDICINES.biogaia.dose) medicine.dose = settings.colicDose;
+  }
+  return {
+    id,
+    short: String(medicine.short || fallback.short || medicineShort(name)).trim().slice(0, 2).toUpperCase(),
+    name: String(medicine.name || name).trim().slice(0, 48),
+    dose: String(medicine.dose || dose).trim().slice(0, 40),
+    time: validTimeValue(medicine.time) ? medicine.time : fallback.time || "09:00",
+    reminder: medicine.reminder !== false,
+    toast: String(medicine.toast || fallback.toast || `${displayMedicineName(name)} lista`).trim(),
+  };
+}
+
 function medicineConfig(med) {
+  const configured = medicineList().find((medicine) => medicine.id === med);
+  if (configured) return configured;
   if (med === "biogaia") {
-    return {
+    return normalizeMedicine({
       ...MEDICINES.biogaia,
       name: state.settings.colicMedicineName || MEDICINES.biogaia.name,
       dose: state.settings.colicDose || MEDICINES.biogaia.dose,
-      toast: `${(state.settings.colicMedicineName || "BioGaia").replace(" Reuteri", "")} listo`,
-    };
+      toast: `${displayMedicineName(state.settings.colicMedicineName || "BioGaia")} listo`,
+    });
   }
-  return MEDICINES[med] || MEDICINES.vitaminD;
+  return normalizeMedicine(MEDICINES[med] || { id: med || "medicine", name: "Medicina", dose: "Dosis" });
 }
 
 function medicineEvent(med, dateKey) {
@@ -1809,7 +2095,84 @@ function medicineChecklistMeta(med, done) {
   const event = medicineEvent(med, todayKey());
   if (done && event) return `Listo ${formatTime(new Date(event.timeISO))} · ${config.dose}`;
   if (done) return `Listo · ${config.dose}`;
-  return `Pendiente · ${config.dose}`;
+  return `Pendiente · ${config.dose}${config.time ? ` · ${formatTimeFromValue(config.time)}` : ""}`;
+}
+
+function medicineIdFromName(name) {
+  return String(name || "medicina")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "") || `med-${Date.now().toString(36)}`;
+}
+
+function medicineShort(name) {
+  const letters = String(name || "M").normalize("NFD").replace(/[\u0300-\u036f]/g, "").match(/[A-Za-z0-9]/g);
+  return (letters?.[0] || "M").toUpperCase();
+}
+
+function displayMedicineName(name) {
+  return String(name || "Medicina").replace(" Reuteri", "");
+}
+
+function validTimeValue(value) {
+  return typeof value === "string" && /^\d{2}:\d{2}$/.test(value);
+}
+
+function timeToMinutes(value) {
+  if (!validTimeValue(value)) return null;
+  const [hours, minutes] = value.split(":").map(Number);
+  return hours * 60 + minutes;
+}
+
+function formatTimeFromValue(value) {
+  if (!validTimeValue(value)) return "";
+  const date = new Date();
+  const [hours, minutes] = value.split(":").map(Number);
+  date.setHours(hours, minutes, 0, 0);
+  return formatTime(date);
+}
+
+async function requestMedicineNotifications() {
+  if (!("Notification" in window)) {
+    showToast("Avisos no disponibles");
+    return;
+  }
+  if (!window.isSecureContext) {
+    showToast("Avisos solo en app instalada o HTTPS");
+    return;
+  }
+  const permission = await Notification.requestPermission();
+  renderMedicineNotificationStatus();
+  showToast(permission === "granted" ? "Avisos activos" : "Avisos no activados");
+}
+
+function maybeNotifyMedicineReminders() {
+  if (!("Notification" in window) || Notification.permission !== "granted") return;
+  const now = new Date();
+  const today = todayKey(now);
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  let changed = false;
+
+  medicineList().forEach((medicine) => {
+    if (!medicine.reminder || !medicine.time || isMedicineDone(medicine.id, today)) return;
+    const dueMinutes = timeToMinutes(medicine.time);
+    if (dueMinutes === null || currentMinutes < dueMinutes) return;
+    const key = `${today}-${medicine.id}`;
+    if (state.medicineReminderNotified?.[key]) return;
+    new Notification(`${displayMedicineName(medicine.name)} pendiente`, {
+      body: `${medicine.dose} para ${state.settings.babyName}`,
+      icon: "./app-icon-192.png",
+      tag: `fede-medicine-${medicine.id}-${today}`,
+    });
+    state.medicineReminderNotified = state.medicineReminderNotified || {};
+    state.medicineReminderNotified[key] = now.toISOString();
+    changed = true;
+  });
+
+  if (changed) saveState();
 }
 
 function renderPediatricianSummary() {
@@ -1934,7 +2297,7 @@ function exportMarkdown() {
       const feedLines = feeds.map(feedToMarkdown);
       const medLines = meds.map((event) => {
         const config = medicineConfig(event.med);
-        return `${formatTime(new Date(event.timeISO))} - ${config.name.toUpperCase()} ${event.dose || config.dose}${event.note ? ` ${event.note}` : ""}`.trim();
+        return `${formatTime(new Date(event.timeISO))} - ${(event.name || config.name).toUpperCase()} ${event.dose || config.dose}${event.note ? ` ${event.note}` : ""}`.trim();
       });
       const noteLines = notes.map((event) => `Nota ${formatTime(new Date(event.timeISO))}: ${event.text}`);
       const diaperIcons = "🚼".repeat(diapers.length);

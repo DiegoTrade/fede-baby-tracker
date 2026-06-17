@@ -11,7 +11,7 @@
     <link rel="icon" href="./app-icon-192.png" type="image/png">
     <link rel="apple-touch-icon" href="./apple-touch-icon.png">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <link rel="stylesheet" href="./styles.css?v=51">
+    <link rel="stylesheet" href="./styles.css?v=52">
   </head>
   <body>
     <div class="app-shell">
@@ -169,10 +169,6 @@
                 <span aria-hidden="true">💧💩</span>
                 <strong>Mixto</strong>
               </button>
-              <button class="diaper-button" data-diaper="gas" type="button">
-                <span aria-hidden="true">💨</span>
-                <strong>Gases</strong>
-              </button>
             </div>
           </section>
 
@@ -210,12 +206,12 @@
                   </button>
                 </form>
                 <div class="chip-row" aria-label="Notas frecuentes">
-                  <button class="chip" data-note-chip="moco" type="button">moco</button>
-                  <button class="chip" data-note-chip="aguado" type="button">aguado</button>
-                  <button class="chip" data-note-chip="siesta" type="button">siesta</button>
-                  <button class="chip" data-note-chip="berrinche" type="button">berrinche</button>
-                  <button class="chip" data-note-chip="vómito" type="button">vómito</button>
-                  <button class="chip" data-note-chip="mastitis" type="button">mastitis</button>
+                  <button class="chip" data-note-chip="moco" type="button">Moco</button>
+                  <button class="chip" data-note-chip="aguado" type="button">Aguado</button>
+                  <button class="chip" data-note-chip="siesta" type="button">Siesta</button>
+                  <button class="chip" data-note-chip="berrinche" type="button">Berrinche</button>
+                  <button class="chip" data-note-chip="vómito" type="button">Vómito</button>
+                  <button class="chip" data-note-chip="mastitis" type="button">Mastitis</button>
                 </div>
               </div>
             </div>
@@ -224,18 +220,7 @@
               <div class="quick-section__head">
                 <span>Medicinas</span>
               </div>
-              <div class="medicine-checklist" aria-label="Medicinas de hoy">
-                <button class="medicine-card" id="vitaminCardButton" type="button">
-                  <span class="medicine-card__mark" aria-hidden="true">✓</span>
-                  <strong>Vitamina D</strong>
-                  <small id="vitaminChecklistMeta">Pendiente · 2 gotas</small>
-                </button>
-                <button class="medicine-card medicine-card--bio" id="bioGaiaCardButton" type="button">
-                  <span class="medicine-card__mark" aria-hidden="true">✓</span>
-                  <strong>BioGaia</strong>
-                  <small id="bioGaiaChecklistMeta">Pendiente · 5 gotas</small>
-                </button>
-              </div>
+              <div class="medicine-checklist" id="medicineChecklist" aria-label="Medicinas de hoy"></div>
             </div>
             </div>
           </details>
@@ -360,18 +345,34 @@
               <span>Nacimiento</span>
               <input id="birthDateInput" name="birthDate" type="date">
             </label>
-            <label>
-              <span>Vitamina D</span>
-              <input id="vitaminTimeInput" name="vitaminTime" type="time">
-            </label>
-            <label>
-              <span>Medicina cólicos</span>
-              <input id="colicMedicineInput" name="colicMedicine" autocomplete="off">
-            </label>
-            <label>
-              <span>Dosis cólicos</span>
-              <input id="colicDoseInput" name="colicDose" autocomplete="off">
-            </label>
+            <section class="settings-medicine settings-form__wide">
+              <div class="section-heading">
+                <h2>Medicinas</h2>
+                <span id="medicineReminderStatus">Avisos opcionales</span>
+              </div>
+              <div class="medicine-settings-list" id="medicineSettingsList"></div>
+              <div class="medicine-add-card">
+                <label>
+                  <span>Nueva medicina</span>
+                  <input id="medicineNameInput" autocomplete="off" placeholder="Ej. Hierro">
+                </label>
+                <label>
+                  <span>Dosis</span>
+                  <input id="medicineDoseInput" autocomplete="off" placeholder="5 gotas">
+                </label>
+                <label>
+                  <span>Hora</span>
+                  <input id="medicineTimeInput" type="time" value="09:00">
+                </label>
+                <label class="medicine-reminder-toggle">
+                  <input id="medicineReminderInput" type="checkbox" checked>
+                  <span>Recordar</span>
+                </label>
+                <button class="secondary-button" id="addMedicineButton" type="button">Agregar medicina</button>
+                <button class="secondary-button" id="enableNotificationsButton" type="button">Permitir avisos</button>
+              </div>
+              <small>Los avisos pueden sonar como notificaciones si el iPhone permite notificaciones para la app. Si no, quedan como pendientes dentro de Medicinas.</small>
+            </section>
             <section class="settings-secret settings-form__wide" id="loveMessagesSecret">
               <div class="settings-secret__locked" id="loveMessagesLockedPanel">
                 <div>
@@ -428,7 +429,7 @@
                   <h2>Modo app</h2>
                   <p class="import-zone__meta" id="appInstallStatus">Comprobando instalación</p>
                 </div>
-                <span class="app-version-pill" id="appVersionStatus">v51</span>
+                <span class="app-version-pill" id="appVersionStatus">v52</span>
               </section>
               <section class="danger-zone">
                 <button class="secondary-button" id="seedButton" type="button">Cargar ejemplo</button>
@@ -635,6 +636,6 @@
     </dialog>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
-    <script src="./app.js?v=51" type="module"></script>
+    <script src="./app.js?v=52" type="module"></script>
   </body>
 </html>

@@ -1,9 +1,9 @@
-const CACHE_NAME = "fede-baby-tracker-v51";
+const CACHE_NAME = "fede-baby-tracker-v52";
 const ASSETS = [
   "./",
   "./index.html",
-  "./styles.css?v=51",
-  "./app.js?v=51",
+  "./styles.css?v=52",
+  "./app.js?v=52",
   "./historical-data.js?v=23",
   "./app-icon.png",
   "./app-icon-512.png",

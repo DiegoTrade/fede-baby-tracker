@@ -673,32 +673,61 @@ body.has-active-feed .active-feed {
 
 .quick-log-band {
   display: grid;
-  gap: 12px;
+  gap: 14px;
 }
 
 .quick-log-band > * {
   min-width: 0;
 }
 
-.quick-section {
+.quick-section,
+.quick-pane {
   min-width: 0;
   max-width: 100%;
   border-radius: var(--radius);
-  border: 1px solid var(--line);
-  background: rgba(255, 253, 248, 0.62);
-  padding: 12px;
+  border: 1px solid rgba(37, 40, 36, 0.14);
+  background: rgba(255, 253, 248, 0.86);
+  box-shadow: 0 12px 34px rgba(58, 64, 55, 0.07);
+  padding: 14px;
+  position: relative;
+  overflow: hidden;
 }
 
-.quick-log-band > .quick-section:nth-of-type(2) {
-  box-shadow: inset 0 3px 0 rgba(50, 122, 109, 0.22);
+.quick-section::before,
+.quick-pane::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  background: var(--left);
 }
 
-.quick-log-band > .quick-section:nth-of-type(3) {
-  box-shadow: inset 0 3px 0 rgba(69, 110, 155, 0.2);
+.quick-section--feed {
+  background: linear-gradient(135deg, rgba(255, 253, 248, 0.94), rgba(232, 243, 236, 0.9));
 }
 
-.quick-log-band > .quick-section:nth-of-type(4) {
-  box-shadow: inset 0 3px 0 rgba(163, 109, 29, 0.22);
+.quick-section--feed::before {
+  background: var(--left);
+}
+
+.quick-section--medicine {
+  background: linear-gradient(135deg, rgba(255, 253, 248, 0.94), rgba(242, 227, 190, 0.58));
+}
+
+.quick-section--medicine::before {
+  background: var(--sun);
+}
+
+.quick-pane--diaper {
+  background: linear-gradient(135deg, rgba(255, 253, 248, 0.94), rgba(223, 234, 243, 0.72));
+}
+
+.quick-pane--diaper::before {
+  background: var(--blue);
+}
+
+.quick-pane--note::before {
+  background: var(--plum);
 }
 
 .quick-section__head {
@@ -708,17 +737,66 @@ body.has-active-feed .active-feed {
   justify-content: space-between;
   gap: 12px;
   align-items: center;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
 }
 
 .quick-section__head > * {
   min-width: 0;
 }
 
+.quick-section__head > span:first-child {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.quick-section__head > span:first-child::before {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: rgba(255, 253, 248, 0.9);
+  border: 1px solid var(--line);
+  display: inline-grid;
+  place-items: center;
+  color: var(--ink);
+  font-size: 16px;
+  font-weight: 1000;
+  flex: 0 0 auto;
+}
+
+.quick-section--feed > .quick-section__head > span:first-child::before {
+  content: "←";
+  color: var(--left);
+}
+
+.quick-pane--diaper .quick-section__head > span:first-child::before {
+  content: "💧";
+  font-size: 15px;
+}
+
+.quick-pane--note .quick-section__head > span:first-child::before {
+  content: "＋";
+  color: var(--plum);
+}
+
+.quick-section--medicine > .quick-section__head > span:first-child::before {
+  content: "✓";
+  color: var(--sun);
+}
+
 .quick-section--split {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 12px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
+}
+
+.quick-section--split::before {
+  display: none;
 }
 
 .feed-nudge {
@@ -773,7 +851,7 @@ body.has-active-feed .active-feed {
 .diaper-button {
   min-height: 142px;
   border-radius: var(--radius);
-  border: 1px solid var(--line);
+  border: 1px solid rgba(37, 40, 36, 0.14);
   padding: 14px;
   display: flex;
   flex-direction: column;
@@ -781,6 +859,16 @@ body.has-active-feed .active-feed {
   align-items: flex-start;
   text-align: left;
   overflow: hidden;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.46);
+  transition: transform 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.feed-button:active,
+.diaper-button:active,
+.medicine-card:active,
+.ghost-command:active,
+.chip:active {
+  transform: translateY(1px);
 }
 
 .feed-button strong,
@@ -822,7 +910,7 @@ body.has-active-feed .active-feed {
 
 .feed-button.is-recommended {
   border-color: rgba(37, 40, 36, 0.48);
-  box-shadow: inset 0 0 0 2px rgba(37, 40, 36, 0.72), 0 12px 30px rgba(58, 64, 55, 0.08);
+  box-shadow: inset 0 0 0 2px rgba(37, 40, 36, 0.72), 0 12px 30px rgba(58, 64, 55, 0.1);
 }
 
 .feed-button.is-recommended small::after {
@@ -841,8 +929,9 @@ body.has-active-feed .active-feed {
 
 .ghost-command {
   width: 100%;
-  min-height: 50px;
-  margin-top: 10px;
+  min-height: 52px;
+  margin-top: 12px;
+  background: rgba(255, 253, 248, 0.88);
 }
 
 .tiny-command {
@@ -857,7 +946,7 @@ body.has-active-feed .active-feed {
 
 .diaper-button {
   min-height: 96px;
-  background: rgba(255, 253, 248, 0.78);
+  background: rgba(255, 253, 248, 0.9);
   align-items: center;
   justify-content: center;
   text-align: center;
@@ -884,7 +973,7 @@ body.has-active-feed .active-feed {
   width: 100%;
   border-radius: var(--radius);
   border: 1px solid var(--line);
-  background: rgba(255, 253, 248, 0.88);
+  background: rgba(255, 253, 248, 0.94);
   color: var(--ink);
   padding: 0 12px;
 }
@@ -924,17 +1013,19 @@ body.has-active-feed .active-feed {
 }
 
 .medicine-card {
-  min-height: 82px;
+  min-height: 92px;
   border-radius: var(--radius);
-  border: 1px solid var(--line);
-  background: rgba(255, 253, 248, 0.84);
-  padding: 12px;
+  border: 1px solid rgba(37, 40, 36, 0.14);
+  background: rgba(255, 253, 248, 0.92);
+  padding: 14px;
   display: grid;
   grid-template-columns: 38px minmax(0, 1fr);
   grid-template-rows: auto auto;
   column-gap: 10px;
   align-items: center;
   text-align: left;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  transition: transform 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
 }
 
 .medicine-card__mark {
@@ -1879,6 +1970,7 @@ body.night-mode .secondary-button,
 body.night-mode .ghost-command,
 body.night-mode .tiny-command,
 body.night-mode .chip,
+body.night-mode .quick-pane,
 body.night-mode .manual-panel,
 body.night-mode .note-capture input,
 body.night-mode .settings-form input,
@@ -1893,6 +1985,20 @@ body.night-mode .history-summary-card,
 body.night-mode .month-card,
 body.night-mode .day-detail {
   background: rgba(255, 255, 255, 0.055);
+}
+
+body.night-mode .quick-section,
+body.night-mode .quick-pane {
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.16);
+}
+
+body.night-mode .quick-section--split {
+  background: transparent;
+  box-shadow: none;
+}
+
+body.night-mode .quick-section__head > span:first-child::before {
+  background: rgba(255, 255, 255, 0.07);
 }
 
 body.night-mode .active-feed {
@@ -1984,6 +2090,11 @@ body.night-mode .vitamin-toggle[aria-pressed="true"] span:last-child {
 
   .now-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .quick-section,
+  .quick-pane {
+    padding: 12px;
   }
 
   .quick-section--split {

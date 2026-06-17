@@ -120,11 +120,14 @@ textarea:focus-visible {
   box-shadow: 0 10px 28px rgba(23, 23, 23, 0.08);
   display: grid;
   place-items: center;
+  overflow: hidden;
 }
 
 .rail__brand img {
-  width: 36px;
-  height: 36px;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  object-fit: cover;
 }
 
 .rail__nav {
@@ -211,6 +214,21 @@ textarea:focus-visible {
   place-items: center;
   flex: 0 0 auto;
   box-shadow: 0 14px 34px rgba(182, 101, 93, 0.13);
+}
+
+.lactation-mark--portrait {
+  overflow: hidden;
+  border-color: rgba(0, 166, 118, 0.22);
+  background: var(--paper);
+  box-shadow: 0 14px 34px rgba(0, 166, 118, 0.12);
+}
+
+.lactation-mark--portrait img {
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  display: block;
+  object-fit: cover;
 }
 
 .lactation-mark svg {

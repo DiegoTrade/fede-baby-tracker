@@ -56,6 +56,19 @@ const MEDICINES = {
   },
 };
 
+const LOVE_NOTE_EMOJIS = ["💥", "🤯", "💥", "✨", "💛", "🚀"];
+
+const LOVE_NOTES = [
+  "Boom. Tres tomas más. Federico no sabe decirlo todavía, pero está orgullosísimo de su mamá.",
+  "Mini pausa: estás haciendo algo enorme, incluso cuando parece rutina.",
+  "Equipo leche va ganando el día. Muy fuerte lo tuyo, mamá.",
+  "Esto no es solo anotar tomas. Es cuidado, paciencia y amor en modo repetición.",
+  "Mamá, hidrátate. Mensaje oficial con admiración y una orden suave de tomar agua.",
+  "Federico está en su era gourmet. Tú estás en tu era heroína tranquila.",
+  "Otra ronda completada. Que conste oficialmente: lo estás haciendo precioso.",
+  "Si hoy nadie lo dijo todavía: gracias por tanto amor en cosas tan pequeñas.",
+];
+
 const DEFAULT_STATE = {
   settings: {
     babyName: "Federico",
@@ -68,6 +81,7 @@ const DEFAULT_STATE = {
   events: [],
   vitaminDByDate: {},
   imports: {},
+  loveNotesSeen: {},
   lastExportISO: "",
   activeFeed: null,
 };
@@ -123,6 +137,11 @@ const els = {
   archiveMeta: $("#archiveMeta"),
   monthArchive: $("#monthArchive"),
   dayDetailPanel: $("#dayDetailPanel"),
+  loveNoteDialog: $("#loveNoteDialog"),
+  loveNoteMark: $("#loveNoteMark"),
+  loveNoteCount: $("#loveNoteCount"),
+  loveNoteText: $("#loveNoteText"),
+  loveNoteCloseButton: $("#loveNoteCloseButton"),
   markdownPreview: $("#markdownPreview"),
   shareMarkdownButton: $("#shareMarkdownButton"),
   copyMarkdownButton: $("#copyMarkdownButton"),
@@ -247,6 +266,10 @@ function bindEvents() {
   els.shareMarkdownButton.addEventListener("click", shareMarkdown);
   els.copyMarkdownButton.addEventListener("click", copyMarkdown);
   els.downloadMarkdownButton.addEventListener("click", downloadMarkdown);
+  els.loveNoteCloseButton.addEventListener("click", () => els.loveNoteDialog.close());
+  els.loveNoteDialog.addEventListener("click", (event) => {
+    if (event.target === els.loveNoteDialog) els.loveNoteDialog.close();
+  });
   els.historySearchInput.addEventListener("input", () => {
     historySearch = els.historySearchInput.value.trim().toLowerCase();
     renderHistory();
@@ -346,6 +369,10 @@ function loadState() {
       imports: {
         ...structuredClone(DEFAULT_STATE).imports,
         ...(saved.imports || {}),
+      },
+      loveNotesSeen: {
+        ...structuredClone(DEFAULT_STATE).loveNotesSeen,
+        ...(saved.loveNotesSeen || {}),
       },
     };
   } catch {
@@ -967,16 +994,19 @@ function toggleMedicine(med) {
 
 function addEvent(event, message) {
   state.events.push(event);
+  const loveNote = maybeBuildLoveNote(event);
   saveState();
   render();
   haptic("save");
   showToast(message, () => {
     state.events = state.events.filter((item) => item.id !== event.id);
     if (event.type === "med" && event.med === "vitaminD") delete state.vitaminDByDate[eventDateKey(event)];
+    if (loveNote?.key) delete state.loveNotesSeen[loveNote.key];
     saveState();
     render();
     haptic("soft");
   });
+  if (loveNote) window.setTimeout(() => showLoveNote(loveNote), 650);
 }
 
 function restoreEvent(event, message = "Registro restaurado") {
@@ -1280,6 +1310,39 @@ function eventImportKey(event) {
 
 function isNotesImportEvent(event) {
   return typeof event.id === "string" && event.id.startsWith("notes-");
+}
+
+function maybeBuildLoveNote(event) {
+  if (event.type !== "feed") return null;
+  const dateKey = eventDateKey(event);
+  const feedCount = state.events.filter((item) => item.type === "feed" && eventDateKey(item) === dateKey).length;
+  if (feedCount < 3 || feedCount % 3 !== 0) return null;
+
+  state.loveNotesSeen = state.loveNotesSeen || {};
+  const key = `${dateKey}-${feedCount}`;
+  if (state.loveNotesSeen[key]) return null;
+
+  const seed = dateKey.split("").reduce((total, char) => total + char.charCodeAt(0), 0);
+  const index = (seed + feedCount / 3 - 1) % LOVE_NOTES.length;
+  const note = LOVE_NOTES[index];
+  const emoji = LOVE_NOTE_EMOJIS[index % LOVE_NOTE_EMOJIS.length];
+  state.loveNotesSeen[key] = new Date().toISOString();
+  return { key, dateKey, feedCount, note, emoji };
+}
+
+function showLoveNote({ dateKey, feedCount, note, emoji }) {
+  if (!els.loveNoteDialog?.showModal) {
+    showToast(note);
+    return;
+  }
+  els.loveNoteMark.textContent = emoji || "💥";
+  els.loveNoteCount.textContent = dateKey === todayKey()
+    ? `${feedCount} tomas hoy ${emoji || "💥"}`
+    : `${feedCount} tomas el ${dateToShort(dateKey)} ${emoji || "💥"}`;
+  els.loveNoteText.textContent = note;
+  if (els.loveNoteDialog.open) els.loveNoteDialog.close();
+  els.loveNoteDialog.showModal();
+  haptic("soft");
 }
 
 function seedExample() {

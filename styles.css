@@ -1397,6 +1397,10 @@ body.has-active-feed .active-feed {
   margin-bottom: 12px;
 }
 
+.export-actions > button {
+  flex: 1 1 118px;
+}
+
 .backup-line {
   margin-bottom: 10px;
   color: var(--muted);

@@ -124,6 +124,7 @@ const els = {
   monthArchive: $("#monthArchive"),
   dayDetailPanel: $("#dayDetailPanel"),
   markdownPreview: $("#markdownPreview"),
+  shareMarkdownButton: $("#shareMarkdownButton"),
   copyMarkdownButton: $("#copyMarkdownButton"),
   downloadMarkdownButton: $("#downloadMarkdownButton"),
   settingsForm: $("#settingsForm"),
@@ -243,6 +244,7 @@ function bindEvents() {
     els.quickNoteInput.value = "";
   });
 
+  els.shareMarkdownButton.addEventListener("click", shareMarkdown);
   els.copyMarkdownButton.addEventListener("click", copyMarkdown);
   els.downloadMarkdownButton.addEventListener("click", downloadMarkdown);
   els.historySearchInput.addEventListener("input", () => {
@@ -1589,10 +1591,43 @@ async function copyMarkdown() {
   const text = exportMarkdown();
   if (!text) return showToast("Sin registros");
   await navigator.clipboard.writeText(text);
-  state.lastExportISO = new Date().toISOString();
-  saveState();
-  render();
+  markExported();
   showToast("Markdown copiado");
+}
+
+async function shareMarkdown() {
+  const text = exportMarkdown();
+  if (!text) return showToast("Sin registros");
+  const fileName = exportFileName();
+  const title = `${state.settings.babyName} · ${dateToShort(todayKey())}`;
+
+  try {
+    if (navigator.share) {
+      const file = new File([text], fileName, { type: "text/markdown" });
+      if (navigator.canShare?.({ files: [file] })) {
+        await navigator.share({
+          title,
+          text: `Registro de ${state.settings.babyName}`,
+          files: [file],
+        });
+      } else {
+        await navigator.share({ title, text });
+      }
+      markExported();
+      showToast("Exportación compartida");
+      return;
+    }
+  } catch (error) {
+    if (error?.name === "AbortError") return;
+  }
+
+  try {
+    await navigator.clipboard.writeText(text);
+    markExported();
+    showToast("Compartir no disponible · copiado");
+  } catch {
+    showToast("Compartir no disponible");
+  }
 }
 
 function downloadMarkdown() {
@@ -1602,15 +1637,30 @@ function downloadMarkdown() {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = `${state.settings.babyName.toLowerCase()}-${todayKey()}.md`;
+  link.download = exportFileName();
   document.body.append(link);
   link.click();
   link.remove();
   URL.revokeObjectURL(url);
+  markExported();
+  showToast("Archivo listo");
+}
+
+function markExported() {
   state.lastExportISO = new Date().toISOString();
   saveState();
   render();
-  showToast("Archivo listo");
+}
+
+function exportFileName() {
+  const base = (state.settings.babyName || "federico")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "") || "federico";
+  return `${base}-${todayKey()}.md`;
 }
 
 function byNewest(a, b) {

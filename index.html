@@ -9,7 +9,7 @@
     <title>Federico</title>
     <link rel="manifest" href="./manifest.webmanifest">
     <link rel="icon" href="./app-icon.svg" type="image/svg+xml">
-    <link rel="stylesheet" href="./styles.css?v=27">
+    <link rel="stylesheet" href="./styles.css?v=28">
   </head>
   <body>
     <div class="app-shell">
@@ -310,7 +310,8 @@
           <section class="export-band">
             <p class="backup-line" id="backupStatus">Guardado en este teléfono</p>
             <div class="export-actions">
-              <button class="primary-button" id="copyMarkdownButton" type="button">Copiar</button>
+              <button class="primary-button" id="shareMarkdownButton" type="button">Compartir</button>
+              <button class="secondary-button" id="copyMarkdownButton" type="button">Copiar</button>
               <button class="secondary-button" id="downloadMarkdownButton" type="button">Descargar</button>
             </div>
             <textarea id="markdownPreview" spellcheck="false" readonly></textarea>
@@ -538,6 +539,6 @@
     </dialog>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
-    <script src="./app.js?v=27" type="module"></script>
+    <script src="./app.js?v=28" type="module"></script>
   </body>
 </html>

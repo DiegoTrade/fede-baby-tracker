@@ -1,7 +1,7 @@
 import { HISTORICAL_IMPORT } from "./historical-data.js?v=23";
 
 const STORAGE_KEY = "fede-baby-tracker-v3";
-const APP_VERSION = "v33";
+const APP_VERSION = "v34";
 const BACKUP_VERSION = 1;
 const APP_VERSION_KEY = `${STORAGE_KEY}-app-version`;
 
@@ -72,6 +72,13 @@ const LOVE_NOTES = [
   "Tu tetica es mi lugar favorito del mundo mundial.",
   "Gracias por cuidarme tanto, mami. Yo sé que a veces pido mucho, pero te amo más.",
   "Mami, no es por presionar, pero creo que en un ratito voy a querer postre.",
+];
+
+const LATE_DAY_LOVE_NOTES = [
+  "Mami, ya vamos por casi todo el día de tetica. Gracias por cuidarme una y otra vez. Te amo muchísimo.",
+  "Mami, hoy me alimentaste todo el día con puro amor. Yo sé que cansa. Gracias por estar para mí.",
+  "Casi cerramos el día, mami. Tu tetica y tus brazos son mi lugar favorito. Gracias por tanto amor.",
+  "Mami, qué jornada la de hoy. Yo estoy chiquito, pero sé que eres una campeona. Te amo.",
 ];
 
 const DEFAULT_STATE = {
@@ -1418,9 +1425,14 @@ function maybeBuildLoveNote(event) {
   if (event.type !== "feed") return null;
   const dateKey = eventDateKey(event);
   const feedCount = state.events.filter((item) => item.type === "feed" && eventDateKey(item) === dateKey).length;
-  if (feedCount < 3 || feedCount % 3 !== 0) return null;
+  if (feedCount < 3) return null;
 
   state.loveNotesSeen = state.loveNotesSeen || {};
+  const lateDayLoveNote = maybeBuildLateDayLoveNote(dateKey, feedCount);
+  if (lateDayLoveNote) return lateDayLoveNote;
+
+  if (feedCount % 3 !== 0) return null;
+
   const key = `${dateKey}-${feedCount}`;
   if (state.loveNotesSeen[key]) return null;
 
@@ -1430,6 +1442,65 @@ function maybeBuildLoveNote(event) {
   const emoji = LOVE_NOTE_EMOJIS[index % LOVE_NOTE_EMOJIS.length];
   state.loveNotesSeen[key] = new Date().toISOString();
   return { key, dateKey, feedCount, note, emoji };
+}
+
+function maybeBuildLateDayLoveNote(dateKey, feedCount) {
+  const target = lateDayLoveTarget();
+  if (feedCount !== target) return null;
+
+  const key = `${dateKey}-late-day-${target}`;
+  if (state.loveNotesSeen[key]) return null;
+
+  const index = Math.abs(hashString(dateKey)) % LATE_DAY_LOVE_NOTES.length;
+  state.loveNotesSeen[key] = new Date().toISOString();
+  return {
+    key,
+    dateKey,
+    feedCount,
+    note: LATE_DAY_LOVE_NOTES[index],
+    emoji: LOVE_NOTE_EMOJIS[index % LOVE_NOTE_EMOJIS.length],
+  };
+}
+
+function lateDayLoveTarget() {
+  const usualDailyFeeds = typicalDailyFeedCount();
+  return Math.max(6, usualDailyFeeds - 2);
+}
+
+function typicalDailyFeedCount() {
+  const stateCounts = completedDailyFeedCounts(state.events);
+  const sourceCounts = stateCounts.length >= 7 ? stateCounts : completedDailyFeedCounts(HISTORICAL_IMPORT.events);
+  if (!sourceCounts.length) return 12;
+  return clamp(Math.round(median(sourceCounts)), 8, 16);
+}
+
+function completedDailyFeedCounts(events) {
+  const today = todayKey();
+  const counts = new Map();
+  events
+    .filter((event) => event.type === "feed")
+    .forEach((event) => {
+      const key = eventDateKey(event);
+      if (key === today) return;
+      counts.set(key, (counts.get(key) || 0) + 1);
+    });
+  return Array.from(counts.values()).filter((count) => count > 0);
+}
+
+function median(values) {
+  const sorted = [...values].sort((a, b) => a - b);
+  const middle = Math.floor(sorted.length / 2);
+  return sorted.length % 2
+    ? sorted[middle]
+    : (sorted[middle - 1] + sorted[middle]) / 2;
+}
+
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function hashString(value) {
+  return Array.from(value).reduce((hash, char) => ((hash << 5) - hash + char.charCodeAt(0)) | 0, 0);
 }
 
 function showLoveNote({ dateKey, feedCount, note, emoji }) {

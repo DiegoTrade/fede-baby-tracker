@@ -314,6 +314,8 @@ h2 {
 .now-band,
 .capture-band,
 .diaper-hub,
+.medicine-hub,
+.note-hub,
 .quick-log-band,
 .quick-band,
 .history-dashboard,
@@ -413,6 +415,36 @@ h2 {
 .diaper-hub {
   display: grid;
   gap: 12px;
+}
+
+.medicine-hub,
+.note-hub {
+  display: grid;
+  gap: 12px;
+}
+
+.medicine-hub {
+  border-radius: 0;
+}
+
+.note-hub {
+  border-top-color: rgba(109, 59, 239, 0.14);
+}
+
+.note-hub .note-capture,
+.note-hub .chip-row {
+  margin-top: 0;
+}
+
+.note-hub .chip-row {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.note-hub .chip {
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
 
 body.night-mode .quick-section,
@@ -799,6 +831,12 @@ body.has-active-feed .active-feed {
 
 .quick-log-band[open] .more-options-summary {
   margin-bottom: 12px;
+}
+
+.quick-log-band:not([open]) > .quick-log-content,
+.advanced-settings:not([open]) > .advanced-settings__content,
+.export-advanced:not([open]) > :not(summary) {
+  display: none;
 }
 
 .quick-log-content {
@@ -2943,6 +2981,30 @@ body.night-mode .vitamin-toggle[aria-pressed="true"] span:last-child {
 
   .medicine-checklist {
     grid-template-columns: 1fr;
+  }
+
+  .medicine-hub .medicine-checklist {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .medicine-hub .medicine-card {
+    min-height: 84px;
+    grid-template-columns: 32px minmax(0, 1fr);
+    padding: 10px;
+    column-gap: 8px;
+  }
+
+  .medicine-hub .medicine-card__mark {
+    width: 32px;
+    height: 32px;
+  }
+
+  .medicine-hub .medicine-card strong {
+    font-size: 15px;
+  }
+
+  .medicine-hub .medicine-card small {
+    font-size: 10px;
   }
 
   .import-zone {

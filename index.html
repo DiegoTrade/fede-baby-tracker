@@ -11,7 +11,7 @@
     <link rel="icon" href="./app-icon-192.png" type="image/png">
     <link rel="apple-touch-icon" href="./apple-touch-icon.png">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <link rel="stylesheet" href="./styles.css?v=52">
+    <link rel="stylesheet" href="./styles.css?v=55">
   </head>
   <body>
     <div class="app-shell">
@@ -172,18 +172,46 @@
             </div>
           </section>
 
-          <details class="quick-log-band" aria-label="Más opciones">
+          <section class="medicine-hub" aria-label="Medicinas">
+            <div class="section-heading">
+              <h2>Medicinas</h2>
+              <span>Toca para marcar</span>
+            </div>
+            <div class="medicine-checklist" id="medicineChecklist" aria-label="Medicinas de hoy"></div>
+          </section>
+
+          <section class="note-hub" aria-label="Nota rápida">
+            <div class="section-heading">
+              <h2>Nota rápida</h2>
+              <span>Un toque</span>
+            </div>
+            <form class="note-capture" id="noteForm">
+              <input id="quickNoteInput" name="note" autocomplete="off" placeholder="Escribir nota" maxlength="160">
+              <button class="icon-button icon-button--dark" type="submit" aria-label="Guardar nota">
+                <span aria-hidden="true">＋</span>
+              </button>
+            </form>
+            <div class="chip-row" aria-label="Notas frecuentes">
+              <button class="chip" data-note-chip="moco" type="button">Moco</button>
+              <button class="chip" data-note-chip="aguado" type="button">Aguado</button>
+              <button class="chip" data-note-chip="siesta" type="button">Siesta</button>
+              <button class="chip" data-note-chip="berrinche" type="button">Berrinche</button>
+              <button class="chip" data-note-chip="vómito" type="button">Vómito</button>
+              <button class="chip" data-note-chip="mastitis" type="button">Mastitis</button>
+            </div>
+          </section>
+
+          <details class="quick-log-band" aria-label="Registro manual">
             <summary class="more-options-summary">
-              <span>Más opciones</span>
-              <small>Manual, nota, medicina y detalles</small>
+              <span>Registro manual</span>
+              <small>Agregar algo pasado o detalles</small>
             </summary>
             <div class="quick-log-content">
             <div class="section-heading">
-              <h2>Registro detallado</h2>
+              <h2>Corregir o completar</h2>
               <button class="tiny-command" id="manualButton" type="button">Manual</button>
             </div>
-            <div class="quick-section quick-section--split">
-              <div class="quick-pane quick-pane--diaper">
+              <div class="quick-section quick-pane--diaper">
                 <div class="quick-section__head">
                   <span>Detalles pañal</span>
                 </div>
@@ -195,33 +223,6 @@
                   <button class="chip" data-diaper-detail="le costó" type="button">le costó</button>
                 </div>
               </div>
-              <div class="quick-pane quick-pane--note">
-                <div class="quick-section__head">
-                  <span>Nota</span>
-                </div>
-                <form class="note-capture" id="noteForm">
-                  <input id="quickNoteInput" name="note" autocomplete="off" placeholder="Nota rápida" maxlength="160">
-                  <button class="icon-button icon-button--dark" type="submit" aria-label="Guardar nota">
-                    <span aria-hidden="true">＋</span>
-                  </button>
-                </form>
-                <div class="chip-row" aria-label="Notas frecuentes">
-                  <button class="chip" data-note-chip="moco" type="button">Moco</button>
-                  <button class="chip" data-note-chip="aguado" type="button">Aguado</button>
-                  <button class="chip" data-note-chip="siesta" type="button">Siesta</button>
-                  <button class="chip" data-note-chip="berrinche" type="button">Berrinche</button>
-                  <button class="chip" data-note-chip="vómito" type="button">Vómito</button>
-                  <button class="chip" data-note-chip="mastitis" type="button">Mastitis</button>
-                </div>
-              </div>
-            </div>
-
-            <div class="quick-section quick-section--medicine">
-              <div class="quick-section__head">
-                <span>Medicinas</span>
-              </div>
-              <div class="medicine-checklist" id="medicineChecklist" aria-label="Medicinas de hoy"></div>
-            </div>
             </div>
           </details>
 
@@ -333,7 +334,7 @@
           <header class="topbar">
             <div>
               <p class="eyebrow">Ajustes</p>
-              <h1>Familia</h1>
+              <h1>Ajustes</h1>
             </div>
           </header>
           <form class="settings-form" id="settingsForm">
@@ -373,34 +374,6 @@
               </div>
               <small>Los avisos pueden sonar como notificaciones si el iPhone permite notificaciones para la app. Si no, quedan como pendientes dentro de Medicinas.</small>
             </section>
-            <section class="settings-secret settings-form__wide" id="loveMessagesSecret">
-              <div class="settings-secret__locked" id="loveMessagesLockedPanel">
-                <div>
-                  <span class="settings-secret__eyebrow">Sorpresa</span>
-                  <h2>Mensajes de Federico</h2>
-                  <p>Ocultos para que aparezcan sin arruinar la sorpresa.</p>
-                </div>
-                <div class="settings-secret__pin">
-                  <label>
-                    <span>PIN privado</span>
-                    <input id="loveMessagesPinInput" type="password" inputmode="numeric" autocomplete="off" maxlength="4" placeholder="PIN">
-                  </label>
-                  <button class="secondary-button" id="unlockLoveMessagesButton" type="button">Desbloquear</button>
-                </div>
-                <p class="settings-secret__meta" id="loveMessagesPinMeta">Solo para editar las sorpresas.</p>
-              </div>
-              <div class="settings-secret__unlocked" id="loveMessagesEditor" hidden>
-                <label>
-                  <span>Mensajes de Federico</span>
-                  <textarea id="loveMessagesInput" name="loveMessages" rows="7" spellcheck="true"></textarea>
-                  <small>Uno por línea. Aparecen cada 3 tomas registradas.</small>
-                </label>
-                <div class="settings-secret__actions">
-                  <button class="secondary-button" id="resetLoveMessagesButton" type="button">Mensajes originales</button>
-                  <button class="secondary-button" id="lockLoveMessagesButton" type="button">Ocultar</button>
-                </div>
-              </div>
-            </section>
             <button class="primary-button" type="submit">Guardar ajustes</button>
           </form>
           <details class="advanced-settings">
@@ -429,7 +402,35 @@
                   <h2>Modo app</h2>
                   <p class="import-zone__meta" id="appInstallStatus">Comprobando instalación</p>
                 </div>
-                <span class="app-version-pill" id="appVersionStatus">v52</span>
+                <span class="app-version-pill" id="appVersionStatus">v55</span>
+              </section>
+              <section class="settings-secret" id="loveMessagesSecret">
+                <div class="settings-secret__locked" id="loveMessagesLockedPanel">
+                  <div>
+                    <span class="settings-secret__eyebrow">Privado</span>
+                    <h2>Mensajes</h2>
+                    <p>Área bloqueada para editar las sorpresas.</p>
+                  </div>
+                  <div class="settings-secret__pin">
+                    <label>
+                      <span>PIN privado</span>
+                      <input id="loveMessagesPinInput" type="password" inputmode="numeric" autocomplete="off" maxlength="4" placeholder="PIN">
+                    </label>
+                    <button class="secondary-button" id="unlockLoveMessagesButton" type="button">Desbloquear</button>
+                  </div>
+                  <p class="settings-secret__meta" id="loveMessagesPinMeta">Solo para editar las sorpresas.</p>
+                </div>
+                <div class="settings-secret__unlocked" id="loveMessagesEditor" hidden>
+                  <label>
+                    <span>Mensajes de Federico</span>
+                    <textarea id="loveMessagesInput" name="loveMessages" rows="7" spellcheck="true"></textarea>
+                    <small>Uno por línea. Aparecen cada 3 tomas registradas.</small>
+                  </label>
+                  <div class="settings-secret__actions">
+                    <button class="secondary-button" id="resetLoveMessagesButton" type="button">Mensajes originales</button>
+                    <button class="secondary-button" id="lockLoveMessagesButton" type="button">Ocultar</button>
+                  </div>
+                </div>
               </section>
               <section class="danger-zone">
                 <button class="secondary-button" id="seedButton" type="button">Cargar ejemplo</button>
@@ -636,6 +637,6 @@
     </dialog>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
-    <script src="./app.js?v=52" type="module"></script>
+    <script src="./app.js?v=55" type="module"></script>
   </body>
 </html>

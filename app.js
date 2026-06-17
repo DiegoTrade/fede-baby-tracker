@@ -1,7 +1,7 @@
 import { HISTORICAL_IMPORT } from "./historical-data.js?v=23";
 
 const STORAGE_KEY = "fede-baby-tracker-v3";
-const APP_VERSION = "v52";
+const APP_VERSION = "v55";
 const BACKUP_VERSION = 1;
 const APP_VERSION_KEY = `${STORAGE_KEY}-app-version`;
 const LOVE_MESSAGES_PIN = "1234";
@@ -356,8 +356,10 @@ function bindEvents() {
   els.loveMessagesPinInput.addEventListener("input", () => {
     if (!loveMessagesUnlocked) els.loveMessagesPinMeta.textContent = "Solo para editar las sorpresas.";
   });
+  els.loveMessagesInput.addEventListener("change", saveLoveMessagesFromEditor);
 
   els.lockLoveMessagesButton.addEventListener("click", () => {
+    saveLoveMessagesFromEditor();
     loveMessagesUnlocked = false;
     els.loveMessagesPinInput.value = "";
     renderLoveMessagesSecret();
@@ -586,6 +588,13 @@ function unlockLoveMessages() {
   renderLoveMessagesSecret();
   els.loveMessagesInput.focus();
   showToast("Mensajes desbloqueados");
+}
+
+function saveLoveMessagesFromEditor() {
+  if (!els.loveMessagesInput) return;
+  state.settings.loveMessages = parseLoveMessagesInput(els.loveMessagesInput.value);
+  els.loveMessagesInput.value = loveNoteMessages().join("\n");
+  saveState();
 }
 
 function renderActiveFeed() {

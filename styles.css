@@ -683,6 +683,26 @@ body.has-active-feed .active-feed {
   box-shadow: 0 0 0 12px rgba(255, 107, 138, 0.12);
 }
 
+.active-feed[data-paused="true"] .active-feed__main {
+  border-color: rgba(37, 40, 36, 0.14);
+  background: rgba(255, 253, 248, 0.66);
+}
+
+.active-feed[data-paused="true"] .active-feed__meta {
+  color: var(--muted);
+}
+
+.active-feed[data-paused="true"] .live-dot {
+  background: var(--muted);
+  box-shadow: 0 0 0 8px rgba(37, 40, 36, 0.08);
+}
+
+.active-feed[data-paused="true"] .active-feed__pulse span {
+  animation: none;
+  background: var(--muted);
+  box-shadow: 0 0 0 12px rgba(37, 40, 36, 0.08);
+}
+
 .active-feed__controls {
   display: grid;
   gap: 12px;
@@ -803,6 +823,16 @@ body.has-active-feed .active-feed {
 
 .active-feed__finish {
   margin-top: 0;
+}
+
+.active-feed__finish > button {
+  flex: 1 1 120px;
+}
+
+#pauseFeedButton.is-paused {
+  background: var(--ink);
+  color: var(--paper);
+  border-color: var(--ink);
 }
 
 .section-heading {

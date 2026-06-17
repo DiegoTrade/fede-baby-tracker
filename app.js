@@ -1,7 +1,7 @@
 import { HISTORICAL_IMPORT } from "./historical-data.js?v=23";
 
 const STORAGE_KEY = "fede-baby-tracker-v3";
-const APP_VERSION = "v58";
+const APP_VERSION = "v59";
 const BACKUP_VERSION = 1;
 const APP_VERSION_KEY = `${STORAGE_KEY}-app-version`;
 const LOVE_MESSAGES_PIN = "1234";
@@ -152,6 +152,7 @@ const els = {
   activeFeedTimer: $("#activeFeedTimer"),
   feedLockStatus: $("#feedLockStatus"),
   feedLockButton: $("#feedLockButton"),
+  pauseFeedButton: $("#pauseFeedButton"),
   stopFeedButton: $("#stopFeedButton"),
   cancelFeedButton: $("#cancelFeedButton"),
   leftSummary: $("#leftSummary"),
@@ -308,6 +309,7 @@ function bindEvents() {
   });
 
   els.stopFeedButton.addEventListener("click", () => stopFeed());
+  els.pauseFeedButton.addEventListener("click", toggleFeedPause);
   els.cancelFeedButton.addEventListener("click", cancelFeed);
   els.feedLockButton.addEventListener("click", requestActiveFeedLockNotification);
   els.nightModeButton.addEventListener("click", toggleNightMode);
@@ -745,12 +747,18 @@ function renderActiveFeed() {
 
   const openSegment = state.activeFeed.segments.find((segment) => !segment.endISO);
   const side = openSegment?.side || state.activeFeed.side;
+  const paused = isActiveFeedPaused();
   els.activeFeedPanel.hidden = false;
   els.activeFeedPanel.dataset.side = side;
+  els.activeFeedPanel.dataset.paused = String(paused);
   document.body.classList.add("has-active-feed");
-  els.activeFeedSide.textContent = `Toma en curso · empezó ${formatTime(new Date(state.activeFeed.startISO))}`;
+  els.activeFeedSide.textContent = paused
+    ? `Toma pausada · empezó ${formatTime(new Date(state.activeFeed.startISO))}`
+    : `Toma en curso · empezó ${formatTime(new Date(state.activeFeed.startISO))}`;
   els.activeFeedHint.textContent = activeFeedHintText();
-  els.activeFeedTimer.textContent = elapsedClock(new Date(state.activeFeed.startISO), new Date());
+  els.activeFeedTimer.textContent = activeFeedClock(state.activeFeed, new Date());
+  els.pauseFeedButton.textContent = paused ? "Continuar toma" : "Pausar";
+  els.pauseFeedButton.classList.toggle("is-paused", paused);
   renderActiveFeedLockStatus();
 }
 
@@ -945,9 +953,12 @@ function eventMeta(event) {
   if (event.type === "feed") {
     const start = new Date(event.startISO);
     const end = event.endISO ? new Date(event.endISO) : null;
-    const duration = end ? ` · ${minutesBetween(start, end)} min` : "";
-    const sideChanges = event.segments?.length > 1 ? ` · ${event.segments.length - 1} cambio${event.segments.length === 2 ? "" : "s"} de pecho` : "";
-    return `${formatTime(start)}${end ? ` - ${formatTime(end)}` : ""}${duration}${sideChanges}${event.note ? ` · ${event.note}` : ""}`;
+    const duration = end ? ` · ${feedDurationMinutes(event, end)} min` : "";
+    const sideChangeCount = feedSideSwitchCount(event);
+    const sideChanges = sideChangeCount ? ` · ${sideChangeCount} cambio${sideChangeCount === 1 ? "" : "s"} de pecho` : "";
+    const pauseCount = feedPauseCount(event);
+    const pauses = pauseCount ? ` · ${pauseCount} pausa${pauseCount === 1 ? "" : "s"}` : "";
+    return `${formatTime(start)}${end ? ` - ${formatTime(end)}` : ""}${duration}${sideChanges}${pauses}${event.note ? ` · ${event.note}` : ""}`;
   }
   return `${formatTime(new Date(event.timeISO))}${event.note ? ` · ${event.note}` : ""}`;
 }
@@ -1418,6 +1429,17 @@ function startFeed(side, offsetMinutes = 0) {
 function switchFeedSide(side) {
   if (!state.activeFeed) return startFeed(side);
   const now = new Date().toISOString();
+  if (isActiveFeedPaused()) {
+    state.activeFeed.segments.push({ side, startISO: now, endISO: null });
+    state.activeFeed.side = deriveFeedSide(state.activeFeed.segments);
+    delete state.activeFeed.pausedAtISO;
+    saveState();
+    render();
+    if (activeFeedNotificationId === state.activeFeed.id) showActiveFeedNotification({ force: true, reason: "switch" });
+    haptic("tap");
+    showToast(`Continúa ${SIDE_LABELS[side]}`);
+    return;
+  }
   const openSegment = state.activeFeed.segments.find((segment) => !segment.endISO);
   if (openSegment) {
     if (openSegment.side === side) return;
@@ -1430,6 +1452,41 @@ function switchFeedSide(side) {
   if (activeFeedNotificationId === state.activeFeed.id) showActiveFeedNotification({ force: true, reason: "switch" });
   haptic("tap");
   showToast(`Ahora ${SIDE_LABELS[side]}`);
+}
+
+function toggleFeedPause() {
+  if (!state.activeFeed) return;
+  if (isActiveFeedPaused()) {
+    resumeFeed();
+    return;
+  }
+  pauseFeed();
+}
+
+function pauseFeed() {
+  if (!state.activeFeed || isActiveFeedPaused()) return;
+  const now = new Date().toISOString();
+  const openSegment = state.activeFeed.segments.find((segment) => !segment.endISO);
+  if (openSegment) openSegment.endISO = now;
+  state.activeFeed.pausedAtISO = now;
+  saveState();
+  render();
+  if (activeFeedNotificationId === state.activeFeed.id) showActiveFeedNotification({ force: true, reason: "pause" });
+  haptic("soft");
+  showToast("Toma pausada");
+}
+
+function resumeFeed() {
+  if (!state.activeFeed || !isActiveFeedPaused()) return;
+  const now = new Date().toISOString();
+  const side = state.activeFeed.side === "both" ? lastFeedSegmentSide(state.activeFeed) : state.activeFeed.side;
+  state.activeFeed.segments.push({ side, startISO: now, endISO: null });
+  delete state.activeFeed.pausedAtISO;
+  saveState();
+  render();
+  if (activeFeedNotificationId === state.activeFeed.id) showActiveFeedNotification({ force: true, reason: "resume" });
+  haptic("start");
+  showToast("Toma continúa");
 }
 
 function addActiveFeedTag(tag) {
@@ -1453,6 +1510,7 @@ function stopFeed(endISO = new Date().toISOString(), message = "Toma guardada") 
     endISO,
     side: deriveFeedSide(state.activeFeed.segments),
   };
+  delete event.pausedAtISO;
   state.activeFeed = null;
   closeActiveFeedNotifications();
   addEvent(event, message);
@@ -2186,12 +2244,13 @@ function activeFeedHintText() {
   const side = openSegment?.side || state.activeFeed.side;
   const breastLabel = side === "right" ? "Pecho derecho" : side === "left" ? "Pecho izquierdo" : "Ambos pechos";
   const base = side === "pump" ? "Extracción en curso" : side === "snack" ? "Snack en curso" : breastLabel;
-  return tags ? `${base} · ${tags}` : base;
+  const text = isActiveFeedPaused() ? `Pausada · ${base}` : base;
+  return tags ? `${text} · ${tags}` : text;
 }
 
 function activeFeedElapsedMinutes() {
   if (!state.activeFeed) return 0;
-  return Math.max(0, Math.floor((Date.now() - new Date(state.activeFeed.startISO).getTime()) / 60000));
+  return Math.max(0, Math.floor(feedDurationMs(state.activeFeed, new Date()) / 60000));
 }
 
 function activeFeedElapsedLabel() {
@@ -2210,6 +2269,51 @@ function activeFeedLaunchUrl(action = "open") {
   url.searchParams.set("feedAction", action);
   if (action === ACTIVE_FEED_FINISH_ACTION) url.searchParams.set("finishFeed", "1");
   return url.href;
+}
+
+function isActiveFeedPaused() {
+  return Boolean(state.activeFeed?.pausedAtISO);
+}
+
+function lastFeedSegmentSide(feed) {
+  const latestSegment = [...(feed?.segments || [])].reverse().find((segment) => segment.side);
+  return latestSegment?.side || feed?.side || "left";
+}
+
+function feedDurationMs(feed, end = new Date()) {
+  if (!feed) return 0;
+  return (feed.segments || []).reduce((total, segment) => {
+    const start = new Date(segment.startISO);
+    const finish = segment.endISO ? new Date(segment.endISO) : end;
+    if (!Number.isFinite(start.getTime()) || !Number.isFinite(finish.getTime())) return total;
+    return total + Math.max(0, finish - start);
+  }, 0);
+}
+
+function feedDurationMinutes(feed, end = new Date()) {
+  return Math.max(1, Math.round(feedDurationMs(feed, end) / 60000));
+}
+
+function activeFeedClock(feed, end = new Date()) {
+  return elapsedClockFromMs(feedDurationMs(feed, end));
+}
+
+function feedSideSwitchCount(feed) {
+  const sides = (feed?.segments || []).map((segment) => segment.side).filter(Boolean);
+  return sides.reduce((count, side, index) => {
+    if (index === 0) return 0;
+    return count + (side !== sides[index - 1] ? 1 : 0);
+  }, 0);
+}
+
+function feedPauseCount(feed) {
+  const segments = feed?.segments || [];
+  return segments.reduce((count, segment, index) => {
+    if (index === 0) return 0;
+    const previous = segments[index - 1];
+    if (!previous?.endISO || !segment.startISO) return count;
+    return count + (new Date(segment.startISO) > new Date(previous.endISO) ? 1 : 0);
+  }, 0);
 }
 
 function medicineList() {
@@ -2406,7 +2510,7 @@ async function showActiveFeedNotification({ force = false, reason = "" } = {}) {
       { action: ACTIVE_FEED_FINISH_ACTION, title: "Guardar toma" },
     ],
   };
-  const title = `Toma en curso · ${activeFeedElapsedLabel()}`;
+  const title = `${isActiveFeedPaused() ? "Toma pausada" : "Toma en curso"} · ${activeFeedElapsedLabel()}`;
 
   try {
     if ("serviceWorker" in navigator) {
@@ -2892,7 +2996,11 @@ function minutesBetween(start, end) {
 }
 
 function elapsedClock(start, end) {
-  const total = Math.max(0, Math.floor((end - start) / 1000));
+  return elapsedClockFromMs(end - start);
+}
+
+function elapsedClockFromMs(ms) {
+  const total = Math.max(0, Math.floor(ms / 1000));
   const minutes = Math.floor(total / 60);
   const seconds = total % 60;
   return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;

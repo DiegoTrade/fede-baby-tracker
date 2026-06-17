@@ -9,7 +9,7 @@
     <title>Federico</title>
     <link rel="manifest" href="./manifest.webmanifest">
     <link rel="icon" href="./app-icon.svg" type="image/svg+xml">
-    <link rel="stylesheet" href="./styles.css?v=30">
+    <link rel="stylesheet" href="./styles.css?v=31">
   </head>
   <body>
     <div class="app-shell">
@@ -540,7 +540,14 @@
 
     <dialog class="love-note-dialog" id="loveNoteDialog">
       <section class="love-note-card" aria-labelledby="loveNoteCount">
-        <div class="love-note-card__mark" id="loveNoteMark" aria-hidden="true">💥</div>
+        <div class="love-note-card__effects" aria-hidden="true">
+          <span>♡</span>
+          <span>♥</span>
+          <span>♡</span>
+          <span>♥</span>
+          <span>♡</span>
+        </div>
+        <div class="love-note-card__mark" id="loveNoteMark" aria-hidden="true">💛</div>
         <p class="love-note-card__kicker">Federico dice</p>
         <h2 id="loveNoteCount">3 tomas hoy</h2>
         <p id="loveNoteText">Gracias, mami. Te amo.</p>
@@ -549,6 +556,6 @@
     </dialog>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
-    <script src="./app.js?v=30" type="module"></script>
+    <script src="./app.js?v=31" type="module"></script>
   </body>
 </html>

@@ -56,7 +56,7 @@ const MEDICINES = {
   },
 };
 
-const LOVE_NOTE_EMOJIS = ["💥", "🤯", "💥", "✨", "💛", "🚀"];
+const LOVE_NOTE_EMOJIS = ["💛", "💖", "💕", "❤️", "🫶", "💗"];
 
 const LOVE_NOTES = [
   "Gracias, mami. Eres la mejor por darme tu tetica. Te amo.",

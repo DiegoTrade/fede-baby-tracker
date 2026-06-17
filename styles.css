@@ -1597,6 +1597,12 @@ body.has-active-feed .active-feed {
   padding: 20px;
   display: grid;
   gap: 10px;
+  animation: love-card-in 240ms ease-out both;
+}
+
+.love-note-card > *:not(.love-note-card__effects) {
+  position: relative;
+  z-index: 1;
 }
 
 .love-note-card::after {
@@ -1611,6 +1617,51 @@ body.has-active-feed .active-feed {
   background: rgba(50, 122, 109, 0.08);
 }
 
+.love-note-card__effects {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.love-note-card__effects span {
+  position: absolute;
+  color: rgba(182, 101, 93, 0.38);
+  font-size: 20px;
+  font-weight: 900;
+  animation: love-heart-float 1800ms ease-in-out infinite;
+}
+
+.love-note-card__effects span:nth-child(1) {
+  left: 18px;
+  top: 74px;
+  animation-delay: 0ms;
+}
+
+.love-note-card__effects span:nth-child(2) {
+  right: 42px;
+  top: 32px;
+  animation-delay: 180ms;
+}
+
+.love-note-card__effects span:nth-child(3) {
+  right: 22px;
+  bottom: 76px;
+  animation-delay: 320ms;
+}
+
+.love-note-card__effects span:nth-child(4) {
+  left: 56%;
+  bottom: 24px;
+  animation-delay: 460ms;
+}
+
+.love-note-card__effects span:nth-child(5) {
+  left: 38%;
+  top: 20px;
+  animation-delay: 620ms;
+}
+
 .love-note-card__mark {
   width: 44px;
   height: 44px;
@@ -1622,6 +1673,7 @@ body.has-active-feed .active-feed {
   color: var(--right);
   font-size: 24px;
   font-weight: 900;
+  animation: love-heart-pulse 1350ms ease-in-out infinite;
 }
 
 .love-note-card__kicker {
@@ -1649,6 +1701,50 @@ body.has-active-feed .active-feed {
 .love-note-card .primary-button {
   width: fit-content;
   min-width: 132px;
+}
+
+@keyframes love-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.96);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes love-heart-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+
+  45% {
+    transform: scale(1.12);
+  }
+}
+
+@keyframes love-heart-float {
+  0%,
+  100% {
+    opacity: 0.2;
+    transform: translateY(5px) scale(0.92);
+  }
+
+  50% {
+    opacity: 0.72;
+    transform: translateY(-7px) scale(1.06);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .love-note-card,
+  .love-note-card__mark,
+  .love-note-card__effects span {
+    animation: none;
+  }
 }
 
 .toast {

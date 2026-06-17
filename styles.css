@@ -1634,6 +1634,76 @@ body.has-active-feed .active-feed {
   grid-column: 1 / -1;
 }
 
+.settings-secret {
+  border-radius: var(--radius);
+  border: 1px solid rgba(109, 59, 239, 0.18);
+  background: linear-gradient(135deg, rgba(255, 253, 248, 0.92), rgba(236, 228, 255, 0.62));
+  padding: 14px;
+}
+
+.settings-secret__locked {
+  display: grid;
+  gap: 12px;
+}
+
+.settings-secret__locked[hidden],
+.settings-secret__unlocked[hidden] {
+  display: none;
+}
+
+.settings-secret__eyebrow {
+  display: inline-block;
+  margin-bottom: 6px;
+  color: var(--plum);
+  font-size: 12px;
+  font-weight: 1000;
+  text-transform: uppercase;
+}
+
+.settings-secret h2 {
+  margin-bottom: 6px;
+}
+
+.settings-secret p {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 780;
+  line-height: 1.35;
+}
+
+.settings-secret__pin {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.settings-secret__pin input {
+  min-height: 46px;
+  width: 100%;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  background: rgba(255, 253, 248, 0.94);
+  color: var(--ink);
+  padding: 0 12px;
+  letter-spacing: 0.18em;
+}
+
+.settings-secret__meta {
+  text-transform: uppercase;
+}
+
+.settings-secret__unlocked {
+  display: grid;
+  gap: 12px;
+}
+
+.settings-secret__actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 .danger-zone {
   display: flex;
   gap: 10px;

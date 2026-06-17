@@ -1,9 +1,10 @@
 import { HISTORICAL_IMPORT } from "./historical-data.js?v=23";
 
 const STORAGE_KEY = "fede-baby-tracker-v3";
-const APP_VERSION = "v40";
+const APP_VERSION = "v41";
 const BACKUP_VERSION = 1;
 const APP_VERSION_KEY = `${STORAGE_KEY}-app-version`;
+const LOVE_MESSAGES_PIN = "1234";
 
 const SIDE_LABELS = {
   left: "Izquierda",
@@ -110,6 +111,7 @@ let historyRangeDays = 7;
 let historyFilter = "all";
 let historySearch = "";
 let selectedHistoryDate = "";
+let loveMessagesUnlocked = false;
 
 const els = {
   themeColorMeta: $("#themeColorMeta"),
@@ -167,8 +169,15 @@ const els = {
   vitaminTimeInput: $("#vitaminTimeInput"),
   colicMedicineInput: $("#colicMedicineInput"),
   colicDoseInput: $("#colicDoseInput"),
+  loveMessagesSecret: $("#loveMessagesSecret"),
+  loveMessagesLockedPanel: $("#loveMessagesLockedPanel"),
+  loveMessagesPinInput: $("#loveMessagesPinInput"),
+  loveMessagesPinMeta: $("#loveMessagesPinMeta"),
+  unlockLoveMessagesButton: $("#unlockLoveMessagesButton"),
+  loveMessagesEditor: $("#loveMessagesEditor"),
   loveMessagesInput: $("#loveMessagesInput"),
   resetLoveMessagesButton: $("#resetLoveMessagesButton"),
+  lockLoveMessagesButton: $("#lockLoveMessagesButton"),
   backupStatus: $("#backupStatus"),
   restoreBackupButton: $("#restoreBackupButton"),
   restoreBackupInput: $("#restoreBackupInput"),
@@ -325,6 +334,23 @@ function bindEvents() {
     saveState();
     render();
     showToast("Ajustes guardados");
+  });
+
+  els.unlockLoveMessagesButton.addEventListener("click", unlockLoveMessages);
+  els.loveMessagesPinInput.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+    unlockLoveMessages();
+  });
+  els.loveMessagesPinInput.addEventListener("input", () => {
+    if (!loveMessagesUnlocked) els.loveMessagesPinMeta.textContent = "Solo para editar las sorpresas.";
+  });
+
+  els.lockLoveMessagesButton.addEventListener("click", () => {
+    loveMessagesUnlocked = false;
+    els.loveMessagesPinInput.value = "";
+    renderLoveMessagesSecret();
+    showToast("Mensajes ocultos");
   });
 
   els.resetLoveMessagesButton.addEventListener("click", () => {
@@ -487,6 +513,7 @@ function render() {
   els.colicMedicineInput.value = state.settings.colicMedicineName;
   els.colicDoseInput.value = state.settings.colicDose;
   els.loveMessagesInput.value = loveNoteMessages().join("\n");
+  renderLoveMessagesSecret();
   els.backupStatus.textContent = backupStatusText();
   els.restoreBackupMeta.textContent = `Reemplaza los datos locales · ${pluralize(state.events.length, "registro", "registros")} actuales`;
   renderAppInstallStatus();
@@ -498,6 +525,30 @@ function render() {
   renderHistory();
   renderPediatricianSummary();
   renderMarkdown();
+}
+
+function renderLoveMessagesSecret() {
+  els.loveMessagesSecret.dataset.unlocked = String(loveMessagesUnlocked);
+  els.loveMessagesLockedPanel.hidden = loveMessagesUnlocked;
+  els.loveMessagesEditor.hidden = !loveMessagesUnlocked;
+  if (!loveMessagesUnlocked && !els.loveMessagesPinInput.value) {
+    els.loveMessagesPinMeta.textContent = "Solo para editar las sorpresas.";
+  }
+}
+
+function unlockLoveMessages() {
+  const pin = els.loveMessagesPinInput.value.trim();
+  if (pin !== LOVE_MESSAGES_PIN) {
+    els.loveMessagesPinMeta.textContent = "PIN incorrecto.";
+    els.loveMessagesPinInput.select();
+    showToast("PIN incorrecto");
+    return;
+  }
+  loveMessagesUnlocked = true;
+  els.loveMessagesPinInput.value = "";
+  renderLoveMessagesSecret();
+  els.loveMessagesInput.focus();
+  showToast("Mensajes desbloqueados");
 }
 
 function renderActiveFeed() {

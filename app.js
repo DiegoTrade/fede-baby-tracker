@@ -1,7 +1,7 @@
 import { HISTORICAL_IMPORT } from "./historical-data.js?v=23";
 
 const STORAGE_KEY = "fede-baby-tracker-v3";
-const APP_VERSION = "v45";
+const APP_VERSION = "v51";
 const BACKUP_VERSION = 1;
 const APP_VERSION_KEY = `${STORAGE_KEY}-app-version`;
 const LOVE_MESSAGES_PIN = "1234";
@@ -113,7 +113,6 @@ let historySearch = "";
 let selectedHistoryDate = "";
 let loveMessagesUnlocked = false;
 let activeTab = "today";
-let diaperDockOpen = false;
 
 const els = {
   themeColorMeta: $("#themeColorMeta"),
@@ -131,13 +130,6 @@ const els = {
   bioGaiaCardButton: $("#bioGaiaCardButton"),
   recommendedStartButton: $("#recommendedStartButton"),
   trustLine: $("#trustLine"),
-  smartCockpit: $("#smartCockpit"),
-  smartInsightEyebrow: $("#smartInsightEyebrow"),
-  smartInsightTitle: $("#smartInsightTitle"),
-  smartInsightBody: $("#smartInsightBody"),
-  feedGapPill: $("#feedGapPill"),
-  diaperGapPill: $("#diaperGapPill"),
-  medicinePill: $("#medicinePill"),
   alertStack: $("#alertStack"),
   activeFeedPanel: $("#activeFeedPanel"),
   activeFeedSide: $("#activeFeedSide"),
@@ -201,14 +193,6 @@ const els = {
   importNotesButton: $("#importNotesButton"),
   importNotesMeta: $("#importNotesMeta"),
   manualButton: $("#manualButton"),
-  quickDock: $("#quickDock"),
-  dockPrimaryButton: $("#dockPrimaryButton"),
-  dockPrimaryIcon: $("#dockPrimaryIcon"),
-  dockPrimaryLabel: $("#dockPrimaryLabel"),
-  dockPrimaryMeta: $("#dockPrimaryMeta"),
-  dockDiaperButton: $("#dockDiaperButton"),
-  dockDiaperMeta: $("#dockDiaperMeta"),
-  diaperDockPicker: $("#diaperDockPicker"),
   manualDialog: $("#manualDialog"),
   manualForm: $("#manualForm"),
   manualCloseButton: $("#manualCloseButton"),
@@ -278,14 +262,6 @@ function bindEvents() {
   });
 
   els.recommendedStartButton.addEventListener("click", () => startFeed(getRecommendedSide()));
-  els.dockPrimaryButton.addEventListener("click", handleDockPrimary);
-  els.dockDiaperButton.addEventListener("click", toggleDiaperDock);
-  $$("[data-dock-diaper]").forEach((button) => {
-    button.addEventListener("click", () => {
-      closeDiaperDock();
-      logDiaper(button.dataset.dockDiaper);
-    });
-  });
 
   $$("[data-segment-side]").forEach((button) => {
     button.addEventListener("click", () => switchFeedSide(button.dataset.segmentSide));
@@ -413,8 +389,6 @@ function bindEvents() {
     const pressedButton = event.target.closest("button");
     if (pressedButton) pulseButton(pressedButton);
 
-    if (diaperDockOpen && !event.target.closest("#quickDock")) closeDiaperDock();
-
     const historyDateButton = event.target.closest("[data-history-date]");
     if (historyDateButton) {
       selectedHistoryDate = historyDateButton.dataset.historyDate;
@@ -429,10 +403,6 @@ function bindEvents() {
     const deleteButton = event.target.closest("[data-delete-event]");
     if (!deleteButton) return;
     deleteEvent(deleteButton.dataset.deleteEvent);
-  });
-
-  document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") closeDiaperDock();
   });
 
   window.addEventListener("beforeinstallprompt", (event) => {
@@ -556,8 +526,6 @@ function render() {
   renderImportStatus();
 
   renderActiveFeed();
-  renderSmartInsight(todayEvents, latestFeed, recommendedSide);
-  renderDock(todayEvents, recommendedSide);
   els.alertStack.innerHTML = "";
   renderTimeline(todayEvents);
   renderHistory();
@@ -605,175 +573,6 @@ function renderActiveFeed() {
   els.activeFeedSide.textContent = `Toma en curso · empezó ${formatTime(new Date(state.activeFeed.startISO))}`;
   els.activeFeedHint.textContent = activeFeedHintText();
   els.activeFeedTimer.textContent = elapsedClock(new Date(state.activeFeed.startISO), new Date());
-}
-
-function renderSmartInsight(todayEvents = eventsForDate(todayKey()), latestFeed = latestFeedEvent(), recommendedSide = getRecommendedSide()) {
-  const insight = buildSmartInsight(todayEvents, latestFeed, recommendedSide);
-  els.smartCockpit.hidden = Boolean(insight.hidden);
-  els.smartCockpit.dataset.tone = insight.tone;
-  els.smartInsightEyebrow.textContent = insight.eyebrow;
-  els.smartInsightTitle.textContent = insight.title;
-  els.smartInsightBody.textContent = insight.body;
-  els.feedGapPill.textContent = insight.feedPill;
-  els.diaperGapPill.textContent = insight.diaperPill;
-  els.medicinePill.textContent = insight.medicinePill;
-}
-
-function buildSmartInsight(todayEvents, latestFeed, recommendedSide) {
-  const today = todayKey();
-  const feeds = todayEvents.filter((event) => event.type === "feed");
-  const diapers = todayEvents.filter((event) => event.type === "diaper");
-  const pendingMeds = pendingMedicines(today);
-  const latestDiaper = diapers.sort(byNewest)[0];
-  const sideText = SIDE_LABELS[recommendedSide].toLowerCase();
-  const feedPill = state.activeFeed
-    ? `Toma en curso · ${elapsedClock(new Date(state.activeFeed.startISO), new Date())}`
-    : latestFeed
-      ? `Última toma · ${timeAgo(new Date(latestFeed.endISO || latestFeed.startISO))}`
-      : "Sin tomas aún";
-  const diaperPill = latestDiaper
-    ? `${diapers.length} pañales · último ${timeAgo(new Date(latestDiaper.timeISO))}`
-    : `${diapers.length} pañales hoy`;
-  const medicinePill = pendingMeds.length
-    ? `Pendiente · ${pendingMeds.map((med) => medicineConfig(med).name.replace(" Reuteri", "")).join(" + ")}`
-    : "Medicinas listas";
-
-  if (state.activeFeed) {
-    return {
-      hidden: true,
-      tone: "live",
-      title: "Toma en curso",
-      eyebrow: "En curso",
-      body: "",
-      feedPill,
-      diaperPill,
-      medicinePill,
-    };
-  }
-
-  if (latestFeed) {
-    const minutes = Math.floor((Date.now() - new Date(latestFeed.endISO || latestFeed.startISO).getTime()) / 60000);
-    if (minutes >= 180) {
-      return {
-        tone: "care",
-        eyebrow: "Puede tocar pronto",
-        title: "Puede venir otra toma",
-        body: `La última fue hace ${timeAgo(new Date(latestFeed.endISO || latestFeed.startISO))}. Si pide, el siguiente pecho sería ${sideText}.`,
-        feedPill,
-        diaperPill,
-        medicinePill,
-      };
-    }
-  }
-
-  if (pendingMeds.length) {
-    const firstMed = medicineConfig(pendingMeds[0]);
-    return {
-      tone: "med",
-      eyebrow: "Medicina",
-      title: `${firstMed.name.replace(" Reuteri", "")} pendiente`,
-      body: `Queda registrar ${firstMed.dose}. La tarjeta de Medicinas lo marca en un toque.`,
-      feedPill,
-      diaperPill,
-      medicinePill,
-    };
-  }
-
-  const hour = new Date().getHours();
-  if (hour >= 17 && diapers.length < 4) {
-    return {
-      tone: "quiet",
-      eyebrow: "Pañales",
-      title: "Pañales por revisar",
-      body: `${diapers.length} pañales registrados hoy. Si hubo otro, toca Pañal y elige pis, popó o mixto.`,
-      feedPill,
-      diaperPill,
-      medicinePill,
-    };
-  }
-
-  if (!feeds.length) {
-    return {
-      hidden: true,
-      tone: "soft",
-      eyebrow: "Ahora",
-      title: "Primera toma de hoy",
-      body: "",
-      feedPill,
-      diaperPill,
-      medicinePill,
-    };
-  }
-
-  const usual = typicalDailyFeedCount();
-  const remaining = Math.max(0, usual - feeds.length);
-  const rhythmText = remaining
-    ? `Según su ritmo normal, podrían quedar alrededor de ${remaining} más.`
-    : "Ya está cerca de su ritmo normal de tomas.";
-  return {
-    hidden: true,
-    tone: "good",
-    eyebrow: "Ritmo",
-    title: "Buen ritmo",
-    body: `${feeds.length} tomas hoy. ${rhythmText} Siguiente: ${sideText}.`,
-    feedPill,
-    diaperPill,
-    medicinePill,
-  };
-}
-
-function renderDock(todayEvents = eventsForDate(todayKey()), recommendedSide = getRecommendedSide()) {
-  const diapers = todayEvents.filter((event) => event.type === "diaper");
-  els.quickDock.classList.toggle("is-live", Boolean(state.activeFeed));
-  els.quickDock.classList.toggle("is-picker-open", diaperDockOpen);
-  els.diaperDockPicker.hidden = !diaperDockOpen;
-  els.dockDiaperButton.setAttribute("aria-expanded", String(diaperDockOpen));
-  els.dockPrimaryButton.dataset.side = state.activeFeed ? "live" : recommendedSide;
-
-  if (state.activeFeed) {
-    els.dockPrimaryIcon.textContent = "✓";
-    els.dockPrimaryLabel.textContent = "Guardar toma";
-    els.dockPrimaryMeta.textContent = elapsedClock(new Date(state.activeFeed.startISO), new Date());
-  } else {
-    els.dockPrimaryIcon.textContent = dockSideIcon(recommendedSide);
-    els.dockPrimaryLabel.textContent = `Toma ${SIDE_LABELS[recommendedSide].toLowerCase()}`;
-    els.dockPrimaryMeta.textContent = "Siguiente pecho";
-  }
-
-  els.dockDiaperMeta.textContent = diapers.length ? `${diapers.length} hoy` : "Elegir tipo";
-}
-
-function handleDockPrimary() {
-  if (state.activeFeed) stopFeed();
-  else startFeed(getRecommendedSide());
-}
-
-function toggleDiaperDock() {
-  diaperDockOpen = !diaperDockOpen;
-  renderDock();
-  haptic("tap");
-}
-
-function closeDiaperDock() {
-  if (!diaperDockOpen) return;
-  diaperDockOpen = false;
-  renderDock();
-}
-
-function pendingMedicines(dateKey = todayKey()) {
-  return ["vitaminD", "biogaia"].filter((med) => !isMedicineDone(med, dateKey));
-}
-
-function latestFeedEvent() {
-  return [...state.events].filter((event) => event.type === "feed").sort(byNewest)[0] || null;
-}
-
-function dockSideIcon(side) {
-  if (side === "right") return "→";
-  if (side === "both") return "↔";
-  if (side === "pump") return "⇣";
-  if (side === "snack") return "•";
-  return "←";
 }
 
 function renderTimeline(events) {
@@ -1251,8 +1050,6 @@ function buildAlerts(todayEvents) {
 
 function tick() {
   renderActiveFeed();
-  renderSmartInsight();
-  renderDock();
   const latestFeed = [...state.events].filter((event) => event.type === "feed").sort(byNewest)[0];
   if (latestFeed) {
     els.sinceLastFeed.textContent = timeAgo(new Date(latestFeed.endISO || latestFeed.startISO));
@@ -1262,7 +1059,6 @@ function tick() {
 function setTab(tabName) {
   activeTab = tabName;
   document.body.dataset.activeTab = tabName;
-  if (tabName !== "today") closeDiaperDock();
   $$("[data-tab]").forEach((screen) => screen.classList.toggle("is-active", screen.dataset.tab === tabName));
   $$("[data-tab-target]").forEach((button) => button.classList.toggle("is-active", button.dataset.tabTarget === tabName));
   if (tabName === "export") renderMarkdown();
@@ -1276,7 +1072,6 @@ function pulseButton(button) {
 }
 
 function startFeed(side, offsetMinutes = 0) {
-  closeDiaperDock();
   if (state.activeFeed) {
     switchFeedSide(side);
     return;

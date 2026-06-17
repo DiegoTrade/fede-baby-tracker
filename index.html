@@ -11,7 +11,7 @@
     <link rel="icon" href="./app-icon-192.png" type="image/png">
     <link rel="apple-touch-icon" href="./apple-touch-icon.png">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <link rel="stylesheet" href="./styles.css?v=45">
+    <link rel="stylesheet" href="./styles.css?v=51">
   </head>
   <body>
     <div class="app-shell">
@@ -61,46 +61,58 @@
             </div>
           </header>
 
-          <section class="now-band" aria-label="Ahora">
+          <section class="now-band" aria-label="Toma">
             <div class="section-heading section-heading--flush">
-              <h2>Ahora</h2>
+              <h2>Toma</h2>
               <span id="trustLine">Guardado en este teléfono</span>
             </div>
-            <div class="now-hero">
-              <article class="now-hero__last">
-                <span>Última toma</span>
-                <strong id="sinceLastFeed">—</strong>
-                <small id="lastFeedStamp">Sin toma hoy</small>
-              </article>
-              <button class="now-hero__next" id="recommendedStartButton" type="button">
-                <span>Siguiente</span>
-                <strong id="lastSide">—</strong>
-                <small>Empezar toma</small>
-              </button>
-              <div class="now-hero__stats">
+            <div class="feed-hub">
+              <div class="feed-hub__summary">
                 <article>
-                  <span>Tomas hoy</span>
+                  <span>Última</span>
+                  <strong id="sinceLastFeed">—</strong>
+                  <small id="lastFeedStamp">Sin toma hoy</small>
+                </article>
+                <button class="feed-hub__next" id="recommendedStartButton" type="button">
+                  <span>Siguiente</span>
+                  <strong id="lastSide">—</strong>
+                  <small>Empezar ahora</small>
+                </button>
+                <article>
+                  <span>Hoy</span>
                   <strong id="feedCount">0</strong>
                   <small><span id="leftSummary">0 izq.</span> · <span id="rightSummary">0 der.</span></small>
                 </article>
-                <article>
-                  <span>Pañales</span>
-                  <strong id="diaperCount">0</strong>
-                  <small id="diaperBreakdown">Sin pañales</small>
-                </article>
               </div>
-            </div>
-            <div class="smart-cockpit" id="smartCockpit" hidden aria-live="polite">
-              <div class="smart-cockpit__copy">
-                <span class="smart-cockpit__eyebrow" id="smartInsightEyebrow">Pendiente</span>
-                <h3 id="smartInsightTitle">Lista para empezar</h3>
-                <p id="smartInsightBody">Cuando Federico empiece, toca el pecho recomendado y la app cuenta por ti.</p>
+              <div class="backdate-row feed-hub__backdate" aria-label="Empezó hace">
+                <button class="chip chip--start" data-start-offset="5" type="button">hace 5 min</button>
+                <button class="chip chip--start" data-start-offset="10" type="button">10 min</button>
+                <button class="chip chip--start" data-start-offset="15" type="button">15 min</button>
+                <button class="chip chip--start" data-start-offset="20" type="button">20 min</button>
               </div>
-              <div class="smart-cockpit__pills" hidden>
-                <span class="smart-pill" id="feedGapPill">Toma —</span>
-                <span class="smart-pill" id="diaperGapPill">Pañales —</span>
-                <span class="smart-pill" id="medicinePill">Medicina —</span>
+              <div class="feed-grid">
+                <button class="feed-button feed-button--left" data-start-feed="left" data-side-button="left" type="button">
+                  <span class="feed-button__icon" aria-hidden="true">←</span>
+                  <strong>Izquierda</strong>
+                  <small id="leftToday">0 hoy</small>
+                </button>
+                <button class="feed-button feed-button--right" data-start-feed="right" data-side-button="right" type="button">
+                  <span class="feed-button__icon" aria-hidden="true">→</span>
+                  <strong>Derecha</strong>
+                  <small id="rightToday">0 hoy</small>
+                </button>
+                <button class="feed-button feed-button--both" data-start-feed="both" type="button">
+                  <span class="feed-button__icon" aria-hidden="true">↔</span>
+                  <strong>Ambas</strong>
+                  <small>toma mixta</small>
+                </button>
+                <button class="feed-button feed-button--pump" data-start-feed="pump" type="button">
+                  <span class="feed-button__icon" aria-hidden="true">⇣</span>
+                  <strong>Extracción</strong>
+                  <small>sacaleche</small>
+                </button>
               </div>
+              <button class="ghost-command" data-start-feed="snack" type="button">Snack intermitente</button>
             </div>
             <div class="alert-stack" id="alertStack" aria-live="polite"></div>
           </section>
@@ -139,73 +151,45 @@
             </div>
           </section>
 
+          <section class="diaper-hub" aria-label="Pañal">
+            <div class="section-heading">
+              <h2>Pañal</h2>
+              <span><strong id="diaperCount">0</strong> · <span id="diaperBreakdown">Sin pañales</span></span>
+            </div>
+            <div class="diaper-grid">
+              <button class="diaper-button" data-diaper="pee" type="button">
+                <span aria-hidden="true">💧</span>
+                <strong>Pis</strong>
+              </button>
+              <button class="diaper-button" data-diaper="poop" type="button">
+                <span aria-hidden="true">💩</span>
+                <strong>Popó</strong>
+              </button>
+              <button class="diaper-button" data-diaper="mixed" type="button">
+                <span aria-hidden="true">💧💩</span>
+                <strong>Mixto</strong>
+              </button>
+              <button class="diaper-button" data-diaper="gas" type="button">
+                <span aria-hidden="true">💨</span>
+                <strong>Gases</strong>
+              </button>
+            </div>
+          </section>
+
           <details class="quick-log-band" aria-label="Más opciones">
             <summary class="more-options-summary">
               <span>Más opciones</span>
-              <small>Manual, nota, medicina y tomas especiales</small>
+              <small>Manual, nota, medicina y detalles</small>
             </summary>
             <div class="quick-log-content">
             <div class="section-heading">
               <h2>Registro detallado</h2>
               <button class="tiny-command" id="manualButton" type="button">Manual</button>
             </div>
-            <div class="quick-section quick-section--feed">
-              <div class="quick-section__head">
-                <span>Toma</span>
-                <div class="backdate-row" aria-label="Empezó hace">
-                  <button class="chip chip--start" data-start-offset="5" type="button">hace 5 min</button>
-                  <button class="chip chip--start" data-start-offset="10" type="button">10 min</button>
-                  <button class="chip chip--start" data-start-offset="15" type="button">15 min</button>
-                  <button class="chip chip--start" data-start-offset="20" type="button">20 min</button>
-                </div>
-              </div>
-              <div class="feed-grid">
-              <button class="feed-button feed-button--left" data-start-feed="left" data-side-button="left" type="button">
-                <span class="feed-button__icon" aria-hidden="true">←</span>
-                <strong>Izquierda</strong>
-                <small id="leftToday">0 hoy</small>
-              </button>
-              <button class="feed-button feed-button--right" data-start-feed="right" data-side-button="right" type="button">
-                <span class="feed-button__icon" aria-hidden="true">→</span>
-                <strong>Derecha</strong>
-                <small id="rightToday">0 hoy</small>
-              </button>
-              <button class="feed-button feed-button--both" data-start-feed="both" type="button">
-                <span class="feed-button__icon" aria-hidden="true">↔</span>
-                <strong>Ambas</strong>
-                <small>toma mixta</small>
-              </button>
-              <button class="feed-button feed-button--pump" data-start-feed="pump" type="button">
-                <span class="feed-button__icon" aria-hidden="true">⇣</span>
-                <strong>Extracción</strong>
-                <small>sacaleche</small>
-              </button>
-              </div>
-              <button class="ghost-command" data-start-feed="snack" type="button">Snack intermitente</button>
-            </div>
-
             <div class="quick-section quick-section--split">
               <div class="quick-pane quick-pane--diaper">
                 <div class="quick-section__head">
-                  <span>Pañal</span>
-                </div>
-                <div class="diaper-grid">
-                  <button class="diaper-button" data-diaper="pee" type="button">
-                    <span aria-hidden="true">💧</span>
-                    <strong>Pis</strong>
-                  </button>
-                  <button class="diaper-button" data-diaper="poop" type="button">
-                    <span aria-hidden="true">💩</span>
-                    <strong>Popó</strong>
-                  </button>
-                  <button class="diaper-button" data-diaper="mixed" type="button">
-                    <span aria-hidden="true">💧💩</span>
-                    <strong>Mixto</strong>
-                  </button>
-                  <button class="diaper-button" data-diaper="gas" type="button">
-                    <span aria-hidden="true">💨</span>
-                    <strong>Gases</strong>
-                  </button>
+                  <span>Detalles pañal</span>
                 </div>
                 <div class="chip-row chip-row--diaper" aria-label="Detalles de pañal">
                   <button class="chip" data-diaper-detail="aguado" type="button">popó aguado</button>
@@ -444,7 +428,7 @@
                   <h2>Modo app</h2>
                   <p class="import-zone__meta" id="appInstallStatus">Comprobando instalación</p>
                 </div>
-                <span class="app-version-pill" id="appVersionStatus">v45</span>
+                <span class="app-version-pill" id="appVersionStatus">v51</span>
               </section>
               <section class="danger-zone">
                 <button class="secondary-button" id="seedButton" type="button">Cargar ejemplo</button>
@@ -456,40 +440,6 @@
       </main>
 
       <div class="bottom-shell" aria-label="Controles de la app">
-        <div class="quick-dock" id="quickDock" aria-label="Acciones rápidas">
-          <div class="diaper-dock-picker" id="diaperDockPicker" hidden>
-            <span class="diaper-dock-picker__label">Tipo de pañal</span>
-            <div class="diaper-dock-picker__grid">
-              <button class="diaper-dock-option" data-dock-diaper="pee" type="button">
-                <span aria-hidden="true">💧</span>
-                <strong>Pis</strong>
-              </button>
-              <button class="diaper-dock-option" data-dock-diaper="poop" type="button">
-                <span aria-hidden="true">💩</span>
-                <strong>Popó</strong>
-              </button>
-              <button class="diaper-dock-option" data-dock-diaper="mixed" type="button">
-                <span aria-hidden="true">💧💩</span>
-                <strong>Mixto</strong>
-              </button>
-            </div>
-          </div>
-          <button class="dock-button dock-button--primary" id="dockPrimaryButton" type="button">
-            <span class="dock-button__icon" id="dockPrimaryIcon" aria-hidden="true">←</span>
-            <span>
-              <strong id="dockPrimaryLabel">Toma izquierda</strong>
-              <small id="dockPrimaryMeta">Siguiente pecho</small>
-            </span>
-          </button>
-          <button class="dock-button" id="dockDiaperButton" type="button" aria-expanded="false" aria-controls="diaperDockPicker">
-            <span class="dock-button__icon" aria-hidden="true">🚼</span>
-            <span>
-              <strong>Pañal</strong>
-              <small id="dockDiaperMeta">Elegir tipo</small>
-            </span>
-          </button>
-        </div>
-
         <nav class="bottom-nav" aria-label="Navegacion principal">
           <button class="nav-button is-active" data-tab-target="today">
             <span aria-hidden="true">●</span>
@@ -685,6 +635,6 @@
     </dialog>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
-    <script src="./app.js?v=45" type="module"></script>
+    <script src="./app.js?v=51" type="module"></script>
   </body>
 </html>

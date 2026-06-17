@@ -11,7 +11,7 @@
     <link rel="icon" href="./app-icon-192.png" type="image/png">
     <link rel="apple-touch-icon" href="./apple-touch-icon.png">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <link rel="stylesheet" href="./styles.css?v=44">
+    <link rel="stylesheet" href="./styles.css?v=45">
   </head>
   <body>
     <div class="app-shell">
@@ -66,35 +66,37 @@
               <h2>Ahora</h2>
               <span id="trustLine">Guardado en este teléfono</span>
             </div>
-            <div class="now-grid">
-              <article class="now-card now-card--primary">
+            <div class="now-hero">
+              <article class="now-hero__last">
                 <span>Última toma</span>
                 <strong id="sinceLastFeed">—</strong>
                 <small id="lastFeedStamp">Sin toma hoy</small>
               </article>
-              <button class="now-card now-card--action" id="recommendedStartButton" type="button">
-                <span>Siguiente pecho</span>
+              <button class="now-hero__next" id="recommendedStartButton" type="button">
+                <span>Siguiente</span>
                 <strong id="lastSide">—</strong>
                 <small>Empezar toma</small>
               </button>
-              <article class="now-card">
-                <span>Tomas hoy</span>
-                <strong id="feedCount">0</strong>
-                <small><span id="leftSummary">0 izq.</span> · <span id="rightSummary">0 der.</span></small>
-              </article>
-              <article class="now-card">
-                <span>Pañales hoy</span>
-                <strong id="diaperCount">0</strong>
-                <small id="diaperBreakdown">Sin pañales</small>
-              </article>
+              <div class="now-hero__stats">
+                <article>
+                  <span>Tomas hoy</span>
+                  <strong id="feedCount">0</strong>
+                  <small><span id="leftSummary">0 izq.</span> · <span id="rightSummary">0 der.</span></small>
+                </article>
+                <article>
+                  <span>Pañales</span>
+                  <strong id="diaperCount">0</strong>
+                  <small id="diaperBreakdown">Sin pañales</small>
+                </article>
+              </div>
             </div>
-            <div class="smart-cockpit" id="smartCockpit" aria-live="polite">
+            <div class="smart-cockpit" id="smartCockpit" hidden aria-live="polite">
               <div class="smart-cockpit__copy">
-                <span class="smart-cockpit__eyebrow">Ritmo de hoy</span>
+                <span class="smart-cockpit__eyebrow" id="smartInsightEyebrow">Pendiente</span>
                 <h3 id="smartInsightTitle">Lista para empezar</h3>
                 <p id="smartInsightBody">Cuando Federico empiece, toca el pecho recomendado y la app cuenta por ti.</p>
               </div>
-              <div class="smart-cockpit__pills">
+              <div class="smart-cockpit__pills" hidden>
                 <span class="smart-pill" id="feedGapPill">Toma —</span>
                 <span class="smart-pill" id="diaperGapPill">Pañales —</span>
                 <span class="smart-pill" id="medicinePill">Medicina —</span>
@@ -137,9 +139,14 @@
             </div>
           </section>
 
-          <section class="quick-log-band" aria-label="Registro rápido">
+          <details class="quick-log-band" aria-label="Más opciones">
+            <summary class="more-options-summary">
+              <span>Más opciones</span>
+              <small>Manual, nota, medicina y tomas especiales</small>
+            </summary>
+            <div class="quick-log-content">
             <div class="section-heading">
-              <h2>Registro rápido</h2>
+              <h2>Registro detallado</h2>
               <button class="tiny-command" id="manualButton" type="button">Manual</button>
             </div>
             <div class="quick-section quick-section--feed">
@@ -246,11 +253,12 @@
                 </button>
               </div>
             </div>
-          </section>
+            </div>
+          </details>
 
           <section class="timeline-band" aria-label="Linea de tiempo">
             <div class="section-heading">
-              <h2>Hoy</h2>
+              <h2>Reciente</h2>
               <span id="todayEventTotal">0 registros</span>
             </div>
             <div class="timeline" id="todayTimeline"></div>
@@ -436,7 +444,7 @@
                   <h2>Modo app</h2>
                   <p class="import-zone__meta" id="appInstallStatus">Comprobando instalación</p>
                 </div>
-                <span class="app-version-pill" id="appVersionStatus">v44</span>
+                <span class="app-version-pill" id="appVersionStatus">v45</span>
               </section>
               <section class="danger-zone">
                 <button class="secondary-button" id="seedButton" type="button">Cargar ejemplo</button>
@@ -677,6 +685,6 @@
     </dialog>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
-    <script src="./app.js?v=44" type="module"></script>
+    <script src="./app.js?v=45" type="module"></script>
   </body>
 </html>

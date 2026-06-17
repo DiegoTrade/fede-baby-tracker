@@ -1,7 +1,7 @@
 import { HISTORICAL_IMPORT } from "./historical-data.js?v=23";
 
 const STORAGE_KEY = "fede-baby-tracker-v3";
-const APP_VERSION = "v44";
+const APP_VERSION = "v45";
 const BACKUP_VERSION = 1;
 const APP_VERSION_KEY = `${STORAGE_KEY}-app-version`;
 const LOVE_MESSAGES_PIN = "1234";
@@ -132,6 +132,7 @@ const els = {
   recommendedStartButton: $("#recommendedStartButton"),
   trustLine: $("#trustLine"),
   smartCockpit: $("#smartCockpit"),
+  smartInsightEyebrow: $("#smartInsightEyebrow"),
   smartInsightTitle: $("#smartInsightTitle"),
   smartInsightBody: $("#smartInsightBody"),
   feedGapPill: $("#feedGapPill"),
@@ -525,7 +526,7 @@ function render() {
   els.leftToday.textContent = `${leftCount} izq.`;
   els.rightToday.textContent = `${rightCount} der.`;
   els.diaperBreakdown.textContent = diapers.length ? `${peeCount} pis · ${poopCount} popó` : "Sin pañales";
-  els.todayEventTotal.textContent = pluralize(todayEvents.length, "registro", "registros");
+  els.todayEventTotal.textContent = todayEvents.length ? `${todayEvents.length} hoy` : "Sin registros";
   els.lastSide.textContent = SIDE_LABELS[recommendedSide];
   $$("[data-side-button]").forEach((button) => {
     button.classList.toggle("is-recommended", button.dataset.sideButton === recommendedSide);
@@ -540,7 +541,7 @@ function render() {
   els.vitaminChecklistMeta.textContent = medicineChecklistMeta("vitaminD", vitaminDone);
   els.bioGaiaChecklistMeta.textContent = medicineChecklistMeta("biogaia", bioGaiaDone);
   els.bioGaiaCardButton.querySelector("strong").textContent = state.settings.colicMedicineName.replace(" Reuteri", "");
-  els.trustLine.textContent = backupStatusText();
+  els.trustLine.textContent = "Guardado en este teléfono";
 
   els.babyNameInput.value = state.settings.babyName;
   els.birthDateInput.value = state.settings.birthDate;
@@ -557,7 +558,7 @@ function render() {
   renderActiveFeed();
   renderSmartInsight(todayEvents, latestFeed, recommendedSide);
   renderDock(todayEvents, recommendedSide);
-  renderAlerts(todayEvents);
+  els.alertStack.innerHTML = "";
   renderTimeline(todayEvents);
   renderHistory();
   renderPediatricianSummary();
@@ -608,7 +609,9 @@ function renderActiveFeed() {
 
 function renderSmartInsight(todayEvents = eventsForDate(todayKey()), latestFeed = latestFeedEvent(), recommendedSide = getRecommendedSide()) {
   const insight = buildSmartInsight(todayEvents, latestFeed, recommendedSide);
+  els.smartCockpit.hidden = Boolean(insight.hidden);
   els.smartCockpit.dataset.tone = insight.tone;
+  els.smartInsightEyebrow.textContent = insight.eyebrow;
   els.smartInsightTitle.textContent = insight.title;
   els.smartInsightBody.textContent = insight.body;
   els.feedGapPill.textContent = insight.feedPill;
@@ -636,24 +639,12 @@ function buildSmartInsight(todayEvents, latestFeed, recommendedSide) {
     : "Medicinas listas";
 
   if (state.activeFeed) {
-    const openSegment = state.activeFeed.segments.find((segment) => !segment.endISO);
-    const currentSide = openSegment?.side || state.activeFeed.side;
     return {
+      hidden: true,
       tone: "live",
       title: "Toma en curso",
-      body: `${activeFeedHintText()} desde ${formatTime(new Date(state.activeFeed.startISO))}. Cambia de pecho si hace falta o guarda al terminar.`,
-      feedPill,
-      diaperPill,
-      medicinePill,
-      side: currentSide,
-    };
-  }
-
-  if (!feeds.length) {
-    return {
-      tone: "soft",
-      title: "Primera toma de hoy",
-      body: `Cuando Federico empiece, toca ${sideText}. El contador queda corriendo aunque cierres el teléfono.`,
+      eyebrow: "En curso",
+      body: "",
       feedPill,
       diaperPill,
       medicinePill,
@@ -665,6 +656,7 @@ function buildSmartInsight(todayEvents, latestFeed, recommendedSide) {
     if (minutes >= 180) {
       return {
         tone: "care",
+        eyebrow: "Puede tocar pronto",
         title: "Puede venir otra toma",
         body: `La última fue hace ${timeAgo(new Date(latestFeed.endISO || latestFeed.startISO))}. Si pide, el siguiente pecho sería ${sideText}.`,
         feedPill,
@@ -678,6 +670,7 @@ function buildSmartInsight(todayEvents, latestFeed, recommendedSide) {
     const firstMed = medicineConfig(pendingMeds[0]);
     return {
       tone: "med",
+      eyebrow: "Medicina",
       title: `${firstMed.name.replace(" Reuteri", "")} pendiente`,
       body: `Queda registrar ${firstMed.dose}. La tarjeta de Medicinas lo marca en un toque.`,
       feedPill,
@@ -690,8 +683,22 @@ function buildSmartInsight(todayEvents, latestFeed, recommendedSide) {
   if (hour >= 17 && diapers.length < 4) {
     return {
       tone: "quiet",
+      eyebrow: "Pañales",
       title: "Pañales por revisar",
       body: `${diapers.length} pañales registrados hoy. Si hubo otro, toca Pañal y elige pis, popó o mixto.`,
+      feedPill,
+      diaperPill,
+      medicinePill,
+    };
+  }
+
+  if (!feeds.length) {
+    return {
+      hidden: true,
+      tone: "soft",
+      eyebrow: "Ahora",
+      title: "Primera toma de hoy",
+      body: "",
       feedPill,
       diaperPill,
       medicinePill,
@@ -704,7 +711,9 @@ function buildSmartInsight(todayEvents, latestFeed, recommendedSide) {
     ? `Según su ritmo normal, podrían quedar alrededor de ${remaining} más.`
     : "Ya está cerca de su ritmo normal de tomas.";
   return {
+    hidden: true,
     tone: "good",
+    eyebrow: "Ritmo",
     title: "Buen ritmo",
     body: `${feeds.length} tomas hoy. ${rhythmText} Siguiente: ${sideText}.`,
     feedPill,
@@ -778,10 +787,13 @@ function renderTimeline(events) {
     return;
   }
 
-  els.todayTimeline.innerHTML = events
-    .sort(byNewest)
-    .map((event) => eventCard(event))
-    .join("");
+  const sortedEvents = events.sort(byNewest);
+  const visibleEvents = sortedEvents.slice(0, 3);
+  const hiddenCount = Math.max(0, sortedEvents.length - visibleEvents.length);
+  els.todayTimeline.innerHTML = [
+    ...visibleEvents.map((event) => eventCard(event)),
+    hiddenCount ? `<div class="timeline-more">${pluralize(hiddenCount, "registro más", "registros más")} en Días</div>` : "",
+  ].join("");
 }
 
 function eventCard(event) {

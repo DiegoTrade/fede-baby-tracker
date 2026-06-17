@@ -1,7 +1,7 @@
 import { HISTORICAL_IMPORT } from "./historical-data.js?v=23";
 
 const STORAGE_KEY = "fede-baby-tracker-v3";
-const APP_VERSION = "v59";
+const APP_VERSION = "v60";
 const BACKUP_VERSION = 1;
 const APP_VERSION_KEY = `${STORAGE_KEY}-app-version`;
 const LOVE_MESSAGES_PIN = "1234";
@@ -150,8 +150,6 @@ const els = {
   activeFeedSide: $("#activeFeedSide"),
   activeFeedHint: $("#activeFeedHint"),
   activeFeedTimer: $("#activeFeedTimer"),
-  feedLockStatus: $("#feedLockStatus"),
-  feedLockButton: $("#feedLockButton"),
   pauseFeedButton: $("#pauseFeedButton"),
   stopFeedButton: $("#stopFeedButton"),
   cancelFeedButton: $("#cancelFeedButton"),
@@ -311,7 +309,6 @@ function bindEvents() {
   els.stopFeedButton.addEventListener("click", () => stopFeed());
   els.pauseFeedButton.addEventListener("click", toggleFeedPause);
   els.cancelFeedButton.addEventListener("click", cancelFeed);
-  els.feedLockButton.addEventListener("click", requestActiveFeedLockNotification);
   els.nightModeButton.addEventListener("click", toggleNightMode);
   els.addMedicineButton.addEventListener("click", addMedicineFromSettings);
   els.enableNotificationsButton.addEventListener("click", requestMedicineNotifications);
@@ -759,45 +756,6 @@ function renderActiveFeed() {
   els.activeFeedTimer.textContent = activeFeedClock(state.activeFeed, new Date());
   els.pauseFeedButton.textContent = paused ? "Continuar toma" : "Pausar";
   els.pauseFeedButton.classList.toggle("is-paused", paused);
-  renderActiveFeedLockStatus();
-}
-
-function renderActiveFeedLockStatus() {
-  if (!els.feedLockButton || !els.feedLockStatus) return;
-  els.feedLockButton.disabled = false;
-
-  if (!("Notification" in window)) {
-    els.feedLockStatus.textContent = "No disponible en este navegador";
-    els.feedLockButton.textContent = "Sin avisos";
-    els.feedLockButton.disabled = true;
-    return;
-  }
-
-  if (!window.isSecureContext) {
-    els.feedLockStatus.textContent = "Disponible en app instalada o HTTPS";
-    els.feedLockButton.textContent = "Sin avisos";
-    els.feedLockButton.disabled = true;
-    return;
-  }
-
-  if (Notification.permission === "denied") {
-    els.feedLockStatus.textContent = "Bloqueado en ajustes del iPhone";
-    els.feedLockButton.textContent = "Bloqueado";
-    els.feedLockButton.disabled = true;
-    return;
-  }
-
-  if (Notification.permission === "granted") {
-    const hasNotification = activeFeedNotificationId === state.activeFeed?.id;
-    els.feedLockStatus.textContent = hasNotification
-      ? `Aviso listo · ${activeFeedElapsedLabel()}`
-      : "Aviso para volver y guardar";
-    els.feedLockButton.textContent = hasNotification ? "Actualizar aviso" : "Enviar aviso";
-    return;
-  }
-
-  els.feedLockStatus.textContent = "Activa una vez para pantalla bloqueada";
-  els.feedLockButton.textContent = "Activar aviso";
 }
 
 function renderMedicineChecklist() {
@@ -2455,38 +2413,8 @@ function formatTimeFromValue(value) {
   return formatTime(date);
 }
 
-async function requestActiveFeedLockNotification() {
-  if (!state.activeFeed) return;
-  if (!("Notification" in window)) {
-    showToast("Avisos no disponibles");
-    renderActiveFeedLockStatus();
-    return;
-  }
-  if (!window.isSecureContext) {
-    showToast("Avisos solo en app instalada o HTTPS");
-    renderActiveFeedLockStatus();
-    return;
-  }
-  if (Notification.permission === "default") {
-    const permission = await Notification.requestPermission();
-    renderMedicineNotificationStatus();
-    renderActiveFeedLockStatus();
-    if (permission !== "granted") {
-      showToast("Avisos no activados");
-      return;
-    }
-  }
-  if (Notification.permission !== "granted") {
-    showToast("Avisos bloqueados");
-    renderActiveFeedLockStatus();
-    return;
-  }
-  await showActiveFeedNotification({ force: true, reason: "manual" });
-}
-
 async function showActiveFeedNotification({ force = false, reason = "" } = {}) {
   if (!state.activeFeed || !("Notification" in window) || Notification.permission !== "granted" || !window.isSecureContext) {
-    renderActiveFeedLockStatus();
     return;
   }
 
@@ -2525,8 +2453,6 @@ async function showActiveFeedNotification({ force = false, reason = "" } = {}) {
     }
     activeFeedNotificationId = state.activeFeed.id;
     activeFeedNotificationMinute = minute;
-    renderActiveFeedLockStatus();
-    if (reason === "manual") showToast("Aviso listo");
   } catch {
     try {
       delete notificationOptions.actions;
@@ -2534,10 +2460,8 @@ async function showActiveFeedNotification({ force = false, reason = "" } = {}) {
       if (registration?.showNotification) await registration.showNotification(title, notificationOptions);
       activeFeedNotificationId = state.activeFeed.id;
       activeFeedNotificationMinute = minute;
-      renderActiveFeedLockStatus();
-      if (reason === "manual") showToast("Aviso listo");
     } catch {
-      showToast("No se pudo enviar aviso");
+      // Lock-screen assist is best-effort. The active toma remains saved locally.
     }
   }
 }

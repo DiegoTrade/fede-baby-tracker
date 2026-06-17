@@ -11,7 +11,7 @@
     <link rel="icon" href="./app-icon-192.png" type="image/png">
     <link rel="apple-touch-icon" href="./apple-touch-icon.png">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <link rel="stylesheet" href="./styles.css?v=59">
+    <link rel="stylesheet" href="./styles.css?v=60">
   </head>
   <body>
     <div class="app-shell">
@@ -143,13 +143,6 @@
                   <button class="segmented-action" data-feed-tag="pee" type="button">💧 Pis</button>
                   <button class="segmented-action" data-feed-tag="gas" type="button">💨 Gases</button>
                 </div>
-              </div>
-              <div class="active-feed__lock">
-                <div>
-                  <span>Bloqueo</span>
-                  <small id="feedLockStatus">Aviso para volver rápido</small>
-                </div>
-                <button class="secondary-button" id="feedLockButton" type="button">Activar aviso</button>
               </div>
               <div class="active-feed__finish">
                 <button class="secondary-button" id="cancelFeedButton" type="button">Cancelar</button>
@@ -407,7 +400,7 @@
                   <h2>Modo app</h2>
                   <p class="import-zone__meta" id="appInstallStatus">Comprobando instalación</p>
                 </div>
-                <span class="app-version-pill" id="appVersionStatus">v59</span>
+                <span class="app-version-pill" id="appVersionStatus">v60</span>
               </section>
               <section class="settings-secret" id="loveMessagesSecret">
                 <div class="settings-secret__locked" id="loveMessagesLockedPanel">
@@ -642,6 +635,6 @@
     </dialog>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
-    <script src="./app.js?v=59" type="module"></script>
+    <script src="./app.js?v=60" type="module"></script>
   </body>
 </html>

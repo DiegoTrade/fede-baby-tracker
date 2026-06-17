@@ -1,7 +1,7 @@
 import { HISTORICAL_IMPORT } from "./historical-data.js?v=23";
 
 const STORAGE_KEY = "fede-baby-tracker-v3";
-const APP_VERSION = "v42";
+const APP_VERSION = "v43";
 const BACKUP_VERSION = 1;
 const APP_VERSION_KEY = `${STORAGE_KEY}-app-version`;
 const LOVE_MESSAGES_PIN = "1234";
@@ -113,6 +113,7 @@ let historySearch = "";
 let selectedHistoryDate = "";
 let loveMessagesUnlocked = false;
 let activeTab = "today";
+let diaperDockOpen = false;
 
 const els = {
   themeColorMeta: $("#themeColorMeta"),
@@ -206,10 +207,7 @@ const els = {
   dockPrimaryMeta: $("#dockPrimaryMeta"),
   dockDiaperButton: $("#dockDiaperButton"),
   dockDiaperMeta: $("#dockDiaperMeta"),
-  dockMedicineButton: $("#dockMedicineButton"),
-  dockMedicineIcon: $("#dockMedicineIcon"),
-  dockMedicineLabel: $("#dockMedicineLabel"),
-  dockMedicineMeta: $("#dockMedicineMeta"),
+  diaperDockPicker: $("#diaperDockPicker"),
   manualDialog: $("#manualDialog"),
   manualForm: $("#manualForm"),
   manualCloseButton: $("#manualCloseButton"),
@@ -280,8 +278,13 @@ function bindEvents() {
 
   els.recommendedStartButton.addEventListener("click", () => startFeed(getRecommendedSide()));
   els.dockPrimaryButton.addEventListener("click", handleDockPrimary);
-  els.dockDiaperButton.addEventListener("click", () => logDiaper("pee"));
-  els.dockMedicineButton.addEventListener("click", handleDockMedicine);
+  els.dockDiaperButton.addEventListener("click", toggleDiaperDock);
+  $$("[data-dock-diaper]").forEach((button) => {
+    button.addEventListener("click", () => {
+      closeDiaperDock();
+      logDiaper(button.dataset.dockDiaper);
+    });
+  });
 
   $$("[data-segment-side]").forEach((button) => {
     button.addEventListener("click", () => switchFeedSide(button.dataset.segmentSide));
@@ -409,6 +412,8 @@ function bindEvents() {
     const pressedButton = event.target.closest("button");
     if (pressedButton) pulseButton(pressedButton);
 
+    if (diaperDockOpen && !event.target.closest("#quickDock")) closeDiaperDock();
+
     const historyDateButton = event.target.closest("[data-history-date]");
     if (historyDateButton) {
       selectedHistoryDate = historyDateButton.dataset.historyDate;
@@ -423,6 +428,10 @@ function bindEvents() {
     const deleteButton = event.target.closest("[data-delete-event]");
     if (!deleteButton) return;
     deleteEvent(deleteButton.dataset.deleteEvent);
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") closeDiaperDock();
   });
 
   window.addEventListener("beforeinstallprompt", (event) => {
@@ -670,7 +679,7 @@ function buildSmartInsight(todayEvents, latestFeed, recommendedSide) {
     return {
       tone: "med",
       title: `${firstMed.name.replace(" Reuteri", "")} pendiente`,
-      body: `Queda registrar ${firstMed.dose}. El botón de medicina lo marca en un toque.`,
+      body: `Queda registrar ${firstMed.dose}. La tarjeta de Medicinas lo marca en un toque.`,
       feedPill,
       diaperPill,
       medicinePill,
@@ -682,7 +691,7 @@ function buildSmartInsight(todayEvents, latestFeed, recommendedSide) {
     return {
       tone: "quiet",
       title: "Pañales por revisar",
-      body: `${diapers.length} pañales registrados hoy. Si hubo otro, el botón Pis lo guarda rápido y luego puedes editarlo.`,
+      body: `${diapers.length} pañales registrados hoy. Si hubo otro, toca Pañal y elige pis, popó o mixto.`,
       feedPill,
       diaperPill,
       medicinePill,
@@ -706,8 +715,10 @@ function buildSmartInsight(todayEvents, latestFeed, recommendedSide) {
 
 function renderDock(todayEvents = eventsForDate(todayKey()), recommendedSide = getRecommendedSide()) {
   const diapers = todayEvents.filter((event) => event.type === "diaper");
-  const pendingMed = nextPendingMedicine();
   els.quickDock.classList.toggle("is-live", Boolean(state.activeFeed));
+  els.quickDock.classList.toggle("is-picker-open", diaperDockOpen);
+  els.diaperDockPicker.hidden = !diaperDockOpen;
+  els.dockDiaperButton.setAttribute("aria-expanded", String(diaperDockOpen));
   els.dockPrimaryButton.dataset.side = state.activeFeed ? "live" : recommendedSide;
 
   if (state.activeFeed) {
@@ -720,22 +731,7 @@ function renderDock(todayEvents = eventsForDate(todayKey()), recommendedSide = g
     els.dockPrimaryMeta.textContent = "Siguiente pecho";
   }
 
-  els.dockDiaperMeta.textContent = diapers.length ? `${diapers.length} pañales hoy` : "Pañal rápido";
-
-  if (pendingMed) {
-    const config = medicineConfig(pendingMed);
-    els.dockMedicineButton.disabled = false;
-    els.dockMedicineButton.dataset.med = pendingMed;
-    els.dockMedicineIcon.textContent = config.short;
-    els.dockMedicineLabel.textContent = config.name.replace(" Reuteri", "");
-    els.dockMedicineMeta.textContent = `${config.dose} pendiente`;
-  } else {
-    els.dockMedicineButton.disabled = true;
-    els.dockMedicineButton.dataset.med = "";
-    els.dockMedicineIcon.textContent = "✓";
-    els.dockMedicineLabel.textContent = "Medicina";
-    els.dockMedicineMeta.textContent = "Lista hoy";
-  }
+  els.dockDiaperMeta.textContent = diapers.length ? `${diapers.length} hoy` : "Elegir tipo";
 }
 
 function handleDockPrimary() {
@@ -743,14 +739,16 @@ function handleDockPrimary() {
   else startFeed(getRecommendedSide());
 }
 
-function handleDockMedicine() {
-  const pendingMed = nextPendingMedicine();
-  if (!pendingMed) return showToast("Medicinas listas hoy");
-  toggleMedicine(pendingMed);
+function toggleDiaperDock() {
+  diaperDockOpen = !diaperDockOpen;
+  renderDock();
+  haptic("tap");
 }
 
-function nextPendingMedicine(dateKey = todayKey()) {
-  return pendingMedicines(dateKey)[0] || "";
+function closeDiaperDock() {
+  if (!diaperDockOpen) return;
+  diaperDockOpen = false;
+  renderDock();
 }
 
 function pendingMedicines(dateKey = todayKey()) {
@@ -1252,6 +1250,7 @@ function tick() {
 function setTab(tabName) {
   activeTab = tabName;
   document.body.dataset.activeTab = tabName;
+  if (tabName !== "today") closeDiaperDock();
   $$("[data-tab]").forEach((screen) => screen.classList.toggle("is-active", screen.dataset.tab === tabName));
   $$("[data-tab-target]").forEach((button) => button.classList.toggle("is-active", button.dataset.tabTarget === tabName));
   if (tabName === "export") renderMarkdown();
@@ -1265,6 +1264,7 @@ function pulseButton(button) {
 }
 
 function startFeed(side, offsetMinutes = 0) {
+  closeDiaperDock();
   if (state.activeFeed) {
     switchFeedSide(side);
     return;

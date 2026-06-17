@@ -1,9 +1,14 @@
-const CACHE_NAME = "fede-baby-tracker-v57";
+const CACHE_NAME = "fede-baby-tracker-v58";
+const ACTIVE_FEED_NOTIFICATION_TAG = "fede-active-feed";
+const ACTIVE_FEED_FINISH_ACTION = "finish-feed";
+const PENDING_DB_NAME = "fede-baby-tracker-pending-actions";
+const PENDING_DB_VERSION = 1;
+const PENDING_STORE = "actions";
 const ASSETS = [
   "./",
   "./index.html",
-  "./styles.css?v=57",
-  "./app.js?v=57",
+  "./styles.css?v=58",
+  "./app.js?v=58",
   "./historical-data.js?v=23",
   "./app-icon.png",
   "./app-icon-512.png",
@@ -32,3 +37,66 @@ self.addEventListener("fetch", (event) => {
     caches.match(event.request).then((cached) => cached || fetch(event.request))
   );
 });
+
+self.addEventListener("notificationclick", (event) => {
+  if (event.notification.tag !== ACTIVE_FEED_NOTIFICATION_TAG) return;
+  event.notification.close();
+
+  const action = event.action === ACTIVE_FEED_FINISH_ACTION ? ACTIVE_FEED_FINISH_ACTION : "open";
+  const target = new URL("./index.html", self.location.href);
+  target.searchParams.set("from", "feed-notification");
+  target.searchParams.set("feedAction", action);
+  if (action === ACTIVE_FEED_FINISH_ACTION) target.searchParams.set("finishFeed", "1");
+
+  event.waitUntil(
+    clients.matchAll({ type: "window", includeUncontrolled: true }).then(async (clientList) => {
+      const endISO = new Date().toISOString();
+      if (action === ACTIVE_FEED_FINISH_ACTION) {
+        try {
+          await queuePendingAction({
+            id: `${ACTIVE_FEED_FINISH_ACTION}-${Date.now()}`,
+            type: ACTIVE_FEED_FINISH_ACTION,
+            feedId: event.notification.data?.feedId || "",
+            endISO,
+            createdISO: endISO,
+          });
+        } catch {
+          // The app will still receive the message if it is alive; persistence is best-effort.
+        }
+      }
+      const appClient = clientList.find((client) => new URL(client.url).origin === self.location.origin);
+      if (appClient) {
+        appClient.postMessage({ type: "feed-notification-click", action, endISO });
+        if (action === ACTIVE_FEED_FINISH_ACTION) return undefined;
+        if ("focus" in appClient) return appClient.focus();
+      }
+      if (action === ACTIVE_FEED_FINISH_ACTION) return undefined;
+      if (clients.openWindow) return clients.openWindow(target.href);
+      return undefined;
+    })
+  );
+});
+
+function openPendingDb() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(PENDING_DB_NAME, PENDING_DB_VERSION);
+    request.onupgradeneeded = () => {
+      if (!request.result.objectStoreNames.contains(PENDING_STORE)) {
+        request.result.createObjectStore(PENDING_STORE, { keyPath: "id" });
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+async function queuePendingAction(action) {
+  const db = await openPendingDb();
+  await new Promise((resolve, reject) => {
+    const transaction = db.transaction(PENDING_STORE, "readwrite");
+    transaction.objectStore(PENDING_STORE).put(action);
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error);
+  });
+  db.close();
+}

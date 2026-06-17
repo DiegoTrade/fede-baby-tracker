@@ -1,10 +1,15 @@
 import { HISTORICAL_IMPORT } from "./historical-data.js?v=23";
 
 const STORAGE_KEY = "fede-baby-tracker-v3";
-const APP_VERSION = "v57";
+const APP_VERSION = "v58";
 const BACKUP_VERSION = 1;
 const APP_VERSION_KEY = `${STORAGE_KEY}-app-version`;
 const LOVE_MESSAGES_PIN = "1234";
+const ACTIVE_FEED_NOTIFICATION_TAG = "fede-active-feed";
+const ACTIVE_FEED_FINISH_ACTION = "finish-feed";
+const PENDING_DB_NAME = "fede-baby-tracker-pending-actions";
+const PENDING_DB_VERSION = 1;
+const PENDING_STORE = "actions";
 
 const SIDE_LABELS = {
   left: "Izquierda",
@@ -123,6 +128,9 @@ let historySearch = "";
 let selectedHistoryDate = "";
 let loveMessagesUnlocked = false;
 let activeTab = "today";
+let activeFeedNotificationId = "";
+let activeFeedNotificationMinute = null;
+let pendingFeedActionSync = null;
 
 const els = {
   themeColorMeta: $("#themeColorMeta"),
@@ -142,6 +150,8 @@ const els = {
   activeFeedSide: $("#activeFeedSide"),
   activeFeedHint: $("#activeFeedHint"),
   activeFeedTimer: $("#activeFeedTimer"),
+  feedLockStatus: $("#feedLockStatus"),
+  feedLockButton: $("#feedLockButton"),
   stopFeedButton: $("#stopFeedButton"),
   cancelFeedButton: $("#cancelFeedButton"),
   leftSummary: $("#leftSummary"),
@@ -253,6 +263,8 @@ const els = {
 
 bindEvents();
 render();
+handleLaunchAction();
+applyPendingFeedActions();
 announceAppVersion();
 setInterval(tick, 1000);
 
@@ -295,8 +307,9 @@ function bindEvents() {
     button.addEventListener("click", () => logNote(button.dataset.noteChip));
   });
 
-  els.stopFeedButton.addEventListener("click", stopFeed);
+  els.stopFeedButton.addEventListener("click", () => stopFeed());
   els.cancelFeedButton.addEventListener("click", cancelFeed);
+  els.feedLockButton.addEventListener("click", requestActiveFeedLockNotification);
   els.nightModeButton.addEventListener("click", toggleNightMode);
   els.addMedicineButton.addEventListener("click", addMedicineFromSettings);
   els.enableNotificationsButton.addEventListener("click", requestMedicineNotifications);
@@ -456,6 +469,131 @@ function bindEvents() {
   });
 
   window.matchMedia?.("(display-mode: standalone)")?.addEventListener?.("change", renderAppInstallStatus);
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) {
+      showActiveFeedNotification({ force: true, reason: "hidden" });
+      return;
+    }
+    applyPendingFeedActions();
+  });
+  window.addEventListener("pagehide", () => showActiveFeedNotification({ force: true, reason: "pagehide" }));
+  window.addEventListener("focus", applyPendingFeedActions);
+  if ("serviceWorker" in navigator) navigator.serviceWorker.addEventListener("message", handleServiceWorkerMessage);
+}
+
+function handleLaunchAction() {
+  const url = new URL(window.location.href);
+  const action = url.searchParams.get("feedAction");
+  const shouldFinish = url.searchParams.get("finishFeed") === "1" || action === ACTIVE_FEED_FINISH_ACTION;
+  const fromFeedNotification = url.searchParams.get("from") === "feed-notification" || Boolean(action);
+
+  if (shouldFinish) {
+    finishActiveFeedFromNotification();
+  } else if (fromFeedNotification) {
+    focusActiveFeedPanel();
+  }
+
+  if (!fromFeedNotification && !shouldFinish) return;
+  ["from", "feedAction", "finishFeed"].forEach((key) => url.searchParams.delete(key));
+  window.history.replaceState({}, document.title, `${url.pathname}${url.search}${url.hash}`);
+}
+
+function handleServiceWorkerMessage(event) {
+  if (event.data?.type !== "feed-notification-click") return;
+  if (event.data.action === ACTIVE_FEED_FINISH_ACTION) {
+    finishActiveFeedFromNotification(event.data.endISO);
+    return;
+  }
+  focusActiveFeedPanel();
+}
+
+function finishActiveFeedFromNotification(endISO = new Date().toISOString()) {
+  if (!state.activeFeed) {
+    showToast("No hay toma en curso");
+    return;
+  }
+  setTab("today");
+  stopFeed(endISO, "Toma guardada desde bloqueo");
+}
+
+function focusActiveFeedPanel() {
+  setTab("today");
+  if (!state.activeFeed) return;
+  window.setTimeout(() => {
+    els.activeFeedPanel.scrollIntoView({ block: "center", behavior: "smooth" });
+  }, 80);
+}
+
+function openPendingDb() {
+  return new Promise((resolve, reject) => {
+    if (!("indexedDB" in window)) {
+      reject(new Error("IndexedDB unavailable"));
+      return;
+    }
+    const request = indexedDB.open(PENDING_DB_NAME, PENDING_DB_VERSION);
+    request.onupgradeneeded = () => {
+      if (!request.result.objectStoreNames.contains(PENDING_STORE)) {
+        request.result.createObjectStore(PENDING_STORE, { keyPath: "id" });
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+async function readPendingActions() {
+  const db = await openPendingDb();
+  const actions = await new Promise((resolve, reject) => {
+    const transaction = db.transaction(PENDING_STORE, "readonly");
+    const request = transaction.objectStore(PENDING_STORE).getAll();
+    request.onsuccess = () => resolve(request.result || []);
+    request.onerror = () => reject(request.error);
+  });
+  db.close();
+  return actions;
+}
+
+async function deletePendingActions(ids) {
+  if (!ids.length) return;
+  const db = await openPendingDb();
+  await new Promise((resolve, reject) => {
+    const transaction = db.transaction(PENDING_STORE, "readwrite");
+    const store = transaction.objectStore(PENDING_STORE);
+    ids.forEach((id) => store.delete(id));
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error);
+  });
+  db.close();
+}
+
+async function applyPendingFeedActions() {
+  if (pendingFeedActionSync) return pendingFeedActionSync;
+  pendingFeedActionSync = (async () => {
+    let actions = [];
+    try {
+      actions = await readPendingActions();
+    } catch {
+      return;
+    }
+
+    const finishActions = actions
+      .filter((action) => action.type === ACTIVE_FEED_FINISH_ACTION)
+      .sort((a, b) => new Date(a.endISO || a.createdISO) - new Date(b.endISO || b.createdISO));
+    const latestFinish = finishActions[finishActions.length - 1];
+    if (latestFinish?.feedId && state.activeFeed && latestFinish.feedId === state.activeFeed.id) {
+      stopFeed(latestFinish.endISO || latestFinish.createdISO || new Date().toISOString(), "Toma guardada desde bloqueo");
+    }
+
+    try {
+      await deletePendingActions(actions.map((action) => action.id).filter(Boolean));
+    } catch {
+      // Pending actions are best-effort. If cleanup fails, a future run can clear them.
+    }
+  })().finally(() => {
+    pendingFeedActionSync = null;
+  });
+  return pendingFeedActionSync;
 }
 
 function loadState() {
@@ -613,6 +751,45 @@ function renderActiveFeed() {
   els.activeFeedSide.textContent = `Toma en curso · empezó ${formatTime(new Date(state.activeFeed.startISO))}`;
   els.activeFeedHint.textContent = activeFeedHintText();
   els.activeFeedTimer.textContent = elapsedClock(new Date(state.activeFeed.startISO), new Date());
+  renderActiveFeedLockStatus();
+}
+
+function renderActiveFeedLockStatus() {
+  if (!els.feedLockButton || !els.feedLockStatus) return;
+  els.feedLockButton.disabled = false;
+
+  if (!("Notification" in window)) {
+    els.feedLockStatus.textContent = "No disponible en este navegador";
+    els.feedLockButton.textContent = "Sin avisos";
+    els.feedLockButton.disabled = true;
+    return;
+  }
+
+  if (!window.isSecureContext) {
+    els.feedLockStatus.textContent = "Disponible en app instalada o HTTPS";
+    els.feedLockButton.textContent = "Sin avisos";
+    els.feedLockButton.disabled = true;
+    return;
+  }
+
+  if (Notification.permission === "denied") {
+    els.feedLockStatus.textContent = "Bloqueado en ajustes del iPhone";
+    els.feedLockButton.textContent = "Bloqueado";
+    els.feedLockButton.disabled = true;
+    return;
+  }
+
+  if (Notification.permission === "granted") {
+    const hasNotification = activeFeedNotificationId === state.activeFeed?.id;
+    els.feedLockStatus.textContent = hasNotification
+      ? `Aviso listo · ${activeFeedElapsedLabel()}`
+      : "Aviso para volver y guardar";
+    els.feedLockButton.textContent = hasNotification ? "Actualizar aviso" : "Enviar aviso";
+    return;
+  }
+
+  els.feedLockStatus.textContent = "Activa una vez para pantalla bloqueada";
+  els.feedLockButton.textContent = "Activar aviso";
 }
 
 function renderMedicineChecklist() {
@@ -1189,6 +1366,7 @@ function buildAlerts(todayEvents) {
 
 function tick() {
   renderActiveFeed();
+  maybeRefreshActiveFeedNotification();
   maybeNotifyMedicineReminders();
   const latestFeed = [...state.events].filter((event) => event.type === "feed").sort(byNewest)[0];
   if (latestFeed) {
@@ -1228,8 +1406,11 @@ function startFeed(side, offsetMinutes = 0) {
     tags: [],
     note: "",
   };
+  activeFeedNotificationId = "";
+  activeFeedNotificationMinute = null;
   saveState();
   render();
+  showActiveFeedNotification({ force: true, reason: "start" });
   haptic("start");
   showToast(offsetMinutes ? `Toma desde hace ${offsetMinutes} min` : `Toma: ${SIDE_LABELS[side]}`);
 }
@@ -1246,6 +1427,7 @@ function switchFeedSide(side) {
   state.activeFeed.side = deriveFeedSide(state.activeFeed.segments);
   saveState();
   render();
+  if (activeFeedNotificationId === state.activeFeed.id) showActiveFeedNotification({ force: true, reason: "switch" });
   haptic("tap");
   showToast(`Ahora ${SIDE_LABELS[side]}`);
 }
@@ -1261,23 +1443,24 @@ function addActiveFeedTag(tag) {
   showToast(TAG_ICON[tag] || "Añadido");
 }
 
-function stopFeed() {
+function stopFeed(endISO = new Date().toISOString(), message = "Toma guardada") {
   if (!state.activeFeed) return;
-  const now = new Date().toISOString();
   state.activeFeed.segments.forEach((segment) => {
-    if (!segment.endISO) segment.endISO = now;
+    if (!segment.endISO) segment.endISO = endISO;
   });
   const event = {
     ...state.activeFeed,
-    endISO: now,
+    endISO,
     side: deriveFeedSide(state.activeFeed.segments),
   };
   state.activeFeed = null;
-  addEvent(event, "Toma guardada");
+  closeActiveFeedNotifications();
+  addEvent(event, message);
 }
 
 function cancelFeed() {
   state.activeFeed = null;
+  closeActiveFeedNotifications();
   saveState();
   render();
   haptic("soft");
@@ -2006,6 +2189,29 @@ function activeFeedHintText() {
   return tags ? `${base} · ${tags}` : base;
 }
 
+function activeFeedElapsedMinutes() {
+  if (!state.activeFeed) return 0;
+  return Math.max(0, Math.floor((Date.now() - new Date(state.activeFeed.startISO).getTime()) / 60000));
+}
+
+function activeFeedElapsedLabel() {
+  if (!state.activeFeed) return "";
+  const minutes = activeFeedElapsedMinutes();
+  if (minutes < 1) return "ahora";
+  if (minutes < 60) return `${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  return rest ? `${hours}h ${rest}m` : `${hours}h`;
+}
+
+function activeFeedLaunchUrl(action = "open") {
+  const url = new URL("./index.html", window.location.href);
+  url.searchParams.set("from", "feed-notification");
+  url.searchParams.set("feedAction", action);
+  if (action === ACTIVE_FEED_FINISH_ACTION) url.searchParams.set("finishFeed", "1");
+  return url.href;
+}
+
 function medicineList() {
   return normalizeMedicines(state.settings?.medicines, state.settings);
 }
@@ -2143,6 +2349,113 @@ function formatTimeFromValue(value) {
   const [hours, minutes] = value.split(":").map(Number);
   date.setHours(hours, minutes, 0, 0);
   return formatTime(date);
+}
+
+async function requestActiveFeedLockNotification() {
+  if (!state.activeFeed) return;
+  if (!("Notification" in window)) {
+    showToast("Avisos no disponibles");
+    renderActiveFeedLockStatus();
+    return;
+  }
+  if (!window.isSecureContext) {
+    showToast("Avisos solo en app instalada o HTTPS");
+    renderActiveFeedLockStatus();
+    return;
+  }
+  if (Notification.permission === "default") {
+    const permission = await Notification.requestPermission();
+    renderMedicineNotificationStatus();
+    renderActiveFeedLockStatus();
+    if (permission !== "granted") {
+      showToast("Avisos no activados");
+      return;
+    }
+  }
+  if (Notification.permission !== "granted") {
+    showToast("Avisos bloqueados");
+    renderActiveFeedLockStatus();
+    return;
+  }
+  await showActiveFeedNotification({ force: true, reason: "manual" });
+}
+
+async function showActiveFeedNotification({ force = false, reason = "" } = {}) {
+  if (!state.activeFeed || !("Notification" in window) || Notification.permission !== "granted" || !window.isSecureContext) {
+    renderActiveFeedLockStatus();
+    return;
+  }
+
+  const minute = activeFeedElapsedMinutes();
+  if (!force && activeFeedNotificationId === state.activeFeed.id && activeFeedNotificationMinute === minute) return;
+
+  const notificationOptions = {
+    body: `${activeFeedHintText()} · empezó ${formatTime(new Date(state.activeFeed.startISO))}`,
+    icon: "./app-icon-192.png",
+    badge: "./app-icon-192.png",
+    tag: ACTIVE_FEED_NOTIFICATION_TAG,
+    renotify: reason === "manual" || reason === "hidden",
+    requireInteraction: true,
+    data: {
+      feedId: state.activeFeed.id,
+      startedAt: state.activeFeed.startISO,
+      url: activeFeedLaunchUrl("open"),
+      finishUrl: activeFeedLaunchUrl(ACTIVE_FEED_FINISH_ACTION),
+    },
+    actions: [
+      { action: ACTIVE_FEED_FINISH_ACTION, title: "Guardar toma" },
+    ],
+  };
+  const title = `Toma en curso · ${activeFeedElapsedLabel()}`;
+
+  try {
+    if ("serviceWorker" in navigator) {
+      const registration = await navigator.serviceWorker.ready;
+      await registration.showNotification(title, notificationOptions);
+    } else {
+      const notification = new Notification(title, notificationOptions);
+      notification.onclick = () => {
+        notification.close();
+        focusActiveFeedPanel();
+      };
+    }
+    activeFeedNotificationId = state.activeFeed.id;
+    activeFeedNotificationMinute = minute;
+    renderActiveFeedLockStatus();
+    if (reason === "manual") showToast("Aviso listo");
+  } catch {
+    try {
+      delete notificationOptions.actions;
+      const registration = "serviceWorker" in navigator ? await navigator.serviceWorker.ready : null;
+      if (registration?.showNotification) await registration.showNotification(title, notificationOptions);
+      activeFeedNotificationId = state.activeFeed.id;
+      activeFeedNotificationMinute = minute;
+      renderActiveFeedLockStatus();
+      if (reason === "manual") showToast("Aviso listo");
+    } catch {
+      showToast("No se pudo enviar aviso");
+    }
+  }
+}
+
+function maybeRefreshActiveFeedNotification() {
+  if (!state.activeFeed || document.hidden || activeFeedNotificationId !== state.activeFeed.id) return;
+  if (!("Notification" in window) || Notification.permission !== "granted") return;
+  if (activeFeedElapsedMinutes() === activeFeedNotificationMinute) return;
+  showActiveFeedNotification({ reason: "tick" });
+}
+
+async function closeActiveFeedNotifications() {
+  activeFeedNotificationId = "";
+  activeFeedNotificationMinute = null;
+  try {
+    if (!("serviceWorker" in navigator)) return;
+    const registration = await navigator.serviceWorker.ready;
+    const notifications = await registration.getNotifications({ tag: ACTIVE_FEED_NOTIFICATION_TAG });
+    notifications.forEach((notification) => notification.close());
+  } catch {
+    // Notification cleanup is best-effort; the feed record is already saved locally.
+  }
 }
 
 async function requestMedicineNotifications() {

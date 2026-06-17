@@ -730,6 +730,43 @@ body.has-active-feed .active-feed {
   text-transform: uppercase;
 }
 
+.active-feed__lock {
+  min-height: 64px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  border-radius: var(--radius);
+  border: 1px solid rgba(37, 40, 36, 0.1);
+  background: rgba(255, 253, 248, 0.66);
+  padding: 10px 12px;
+}
+
+.active-feed__lock > div {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.active-feed__lock span {
+  color: var(--ink);
+  font-size: 16px;
+  font-weight: 950;
+}
+
+.active-feed__lock small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 780;
+  line-height: 1.25;
+}
+
+.active-feed__lock .secondary-button {
+  min-height: 44px;
+  padding-inline: 12px;
+  white-space: nowrap;
+}
+
 .active-feed__actions,
 .active-feed__finish,
 .export-actions,
@@ -2627,6 +2664,7 @@ body.night-mode .status-metric,
 body.night-mode .diaper-hub,
 body.night-mode .active-feed__main,
 body.night-mode .active-feed__controls,
+body.night-mode .active-feed__lock,
 body.night-mode .rhythm-card,
 body.night-mode .rhythm-day__bars,
 body.night-mode .export-band__head,
@@ -3016,6 +3054,14 @@ body.night-mode .vitamin-toggle[aria-pressed="true"] span:last-child {
 
   .active-feed__hint {
     font-size: 22px;
+  }
+
+  .active-feed__lock {
+    grid-template-columns: 1fr;
+  }
+
+  .active-feed__lock .secondary-button {
+    width: 100%;
   }
 
   .control-row,

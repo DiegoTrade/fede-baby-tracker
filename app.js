@@ -1,7 +1,7 @@
 import { HISTORICAL_IMPORT } from "./historical-data.js?v=23";
 
 const STORAGE_KEY = "fede-baby-tracker-v3";
-const APP_VERSION = "v64";
+const APP_VERSION = "v65";
 const BACKUP_VERSION = 1;
 const APP_VERSION_KEY = `${STORAGE_KEY}-app-version`;
 const LOVE_MESSAGES_PIN = "1234";
@@ -131,6 +131,7 @@ let activeTab = "today";
 let activeFeedNotificationId = "";
 let activeFeedNotificationMinute = null;
 let pendingFeedActionSync = null;
+let activeFeedMinuteEffectKey = "";
 
 const els = {
   themeColorMeta: $("#themeColorMeta"),
@@ -291,19 +292,19 @@ function bindEvents() {
   });
 
   $$("[data-feed-tag]").forEach((button) => {
-    button.addEventListener("click", () => addActiveFeedTag(button.dataset.feedTag));
+    button.addEventListener("click", () => addActiveFeedTag(button.dataset.feedTag, button));
   });
 
   $$("[data-diaper]").forEach((button) => {
-    button.addEventListener("click", () => logDiaper(button.dataset.diaper));
+    button.addEventListener("click", () => logDiaper(button.dataset.diaper, button));
   });
 
   $$("[data-diaper-detail]").forEach((button) => {
-    button.addEventListener("click", () => addDiaperDetail(button.dataset.diaperDetail));
+    button.addEventListener("click", () => addDiaperDetail(button.dataset.diaperDetail, button));
   });
 
   $$("[data-note-chip]").forEach((button) => {
-    button.addEventListener("click", () => logNote(button.dataset.noteChip));
+    button.addEventListener("click", () => logNote(button.dataset.noteChip, button));
   });
 
   els.stopFeedButton.addEventListener("click", () => stopFeed());
@@ -422,11 +423,11 @@ function bindEvents() {
 
   document.addEventListener("click", (event) => {
     const pressedButton = event.target.closest("button");
-    if (pressedButton) pulseButton(pressedButton);
+    if (pressedButton) pulseButton(pressedButton, event);
 
     const medicineButton = event.target.closest("[data-toggle-med]");
     if (medicineButton) {
-      toggleMedicine(medicineButton.dataset.toggleMed);
+      toggleMedicine(medicineButton.dataset.toggleMed, medicineButton);
       return;
     }
     const removeMedicineButton = event.target.closest("[data-remove-medicine]");
@@ -739,6 +740,7 @@ function renderActiveFeed() {
     els.activeFeedPanel.hidden = true;
     delete els.activeFeedPanel.dataset.side;
     document.body.classList.remove("has-active-feed");
+    activeFeedMinuteEffectKey = "";
     return;
   }
 
@@ -753,7 +755,13 @@ function renderActiveFeed() {
     ? `Toma pausada · empezó ${formatTime(new Date(state.activeFeed.startISO))}`
     : `Toma en curso · empezó ${formatTime(new Date(state.activeFeed.startISO))}`;
   els.activeFeedHint.textContent = activeFeedHintText();
+  const minute = activeFeedElapsedMinutes();
+  const minuteKey = `${state.activeFeed.id}-${minute}`;
   els.activeFeedTimer.textContent = activeFeedClock(state.activeFeed, new Date());
+  if (activeFeedMinuteEffectKey && activeFeedMinuteEffectKey !== minuteKey) {
+    animateElement(els.activeFeedTimer, "is-minute-tick", 560);
+  }
+  activeFeedMinuteEffectKey = minuteKey;
   els.pauseFeedButton.textContent = paused ? "Continuar toma" : "Pausar";
   els.pauseFeedButton.classList.toggle("is-paused", paused);
   $$("[data-feed-tag]").forEach((button) => {
@@ -881,7 +889,7 @@ function renderTimeline(events) {
 function eventCard(event) {
   const iconClass = event.type === "feed" ? `event-card__icon--feed-${event.side}` : `event-card__icon--${event.type}`;
   return `
-    <article class="event-card">
+    <article class="event-card" data-event-id="${escapeHTML(event.id)}">
       <div class="event-card__icon ${iconClass}" aria-hidden="true">${eventIcon(event)}</div>
       <div>
         <div class="event-card__title">${escapeHTML(eventTitle(event))}</div>
@@ -1356,11 +1364,12 @@ function setTab(tabName) {
   if (tabName === "export") renderMarkdown();
 }
 
-function pulseButton(button) {
+function pulseButton(button, event = null) {
   button.classList.remove("is-pressed");
   void button.offsetWidth;
   button.classList.add("is-pressed");
   window.setTimeout(() => button.classList.remove("is-pressed"), 220);
+  createTapGlow(button, event);
 }
 
 function startFeed(side, offsetMinutes = 0) {
@@ -1452,7 +1461,7 @@ function resumeFeed() {
   showToast("Toma continúa");
 }
 
-function addActiveFeedTag(tag) {
+function addActiveFeedTag(tag, button = null) {
   if (!state.activeFeed) return;
   if (tag === "pee" || tag === "poop") {
     toggleActiveFeedDiaper(tag);
@@ -1466,11 +1475,14 @@ function addActiveFeedTag(tag) {
   saveState();
   render();
   haptic("tap");
+  animateFeedTagButton(tag, selected);
+  if (button) animateElement(button, selected ? "is-selection-pop" : "is-selection-release", 520);
   showToast(selected ? `${TAG_ICON[tag] || "Detalle"} anotado` : `${TAG_ICON[tag] || "Detalle"} quitado`, () => {
     if (!state.activeFeed) return;
     state.activeFeed.tags = beforeTags;
     saveState();
     render();
+    animateFeedTagButton(tag, beforeTags.includes(tag));
     haptic("soft");
   });
 }
@@ -1512,6 +1524,8 @@ function toggleActiveFeedDiaper(tag) {
   saveState();
   render();
   haptic("tap");
+  animateFeedTagButton(tag, Boolean(nextEvent[tag]));
+  animateElement(els.diaperCount, hasDiaperMark ? "is-count-pop" : "is-count-release", 520);
   showToast(activeFeedDiaperToast(tag, Boolean(nextEvent[tag])), () => {
     if (state.activeFeed?.id === beforeFeed.id) {
       if (beforeFeed.diaperEventId) state.activeFeed.diaperEventId = beforeFeed.diaperEventId;
@@ -1526,6 +1540,8 @@ function toggleActiveFeedDiaper(tag) {
     }
     saveState();
     render();
+    animateFeedTagButton(tag, Boolean(beforeEvent?.[tag]));
+    animateElement(els.diaperCount, beforeEvent ? "is-count-pop" : "is-count-release", 520);
     haptic("soft");
   });
 }
@@ -1545,6 +1561,7 @@ function stopFeed(endISO = new Date().toISOString(), message = "Toma guardada") 
   state.activeFeed = null;
   closeActiveFeedNotifications();
   addEvent(event, message);
+  showSaveBurst("feed");
 }
 
 function cancelFeed() {
@@ -1556,9 +1573,10 @@ function cancelFeed() {
   showToast("Toma cancelada");
 }
 
-function logDiaper(kind) {
+function logDiaper(kind, button = null) {
   const preset = DIAPER_PRESETS[kind];
   if (!preset) return;
+  if (button) animateElement(button, "is-selection-pop", 520);
   addEvent({
     id: makeId(),
     type: "diaper",
@@ -1569,9 +1587,11 @@ function logDiaper(kind) {
     details: [],
     note: "",
   }, `Pañal: ${preset.label}`);
+  animateElement(els.diaperCount, "is-count-pop", 520);
 }
 
-function logNote(text) {
+function logNote(text, button = null) {
+  if (button) animateElement(button, "is-selection-pop", 520);
   addEvent({
     id: makeId(),
     type: "note",
@@ -1580,7 +1600,7 @@ function logNote(text) {
   }, "Nota guardada");
 }
 
-function addDiaperDetail(detail) {
+function addDiaperDetail(detail, button = null) {
   const today = todayKey();
   const latestDiaper = state.events
     .filter((event) => event.type === "diaper" && event.poop && eventDateKey(event) === today)
@@ -1596,11 +1616,13 @@ function addDiaperDetail(detail) {
   saveState();
   render();
   haptic("tap");
+  if (button) animateElement(button, "is-selection-pop", 520);
   showToast("Detalle añadido", () => {
     const index = state.events.findIndex((event) => event.id === before.id);
     if (index >= 0) state.events[index] = before;
     saveState();
     render();
+    if (button) animateElement(button, "is-selection-release", 520);
     haptic("soft");
   });
 }
@@ -1679,7 +1701,7 @@ function removeMedicine(id) {
   });
 }
 
-function toggleMedicine(med) {
+function toggleMedicine(med, button = null) {
   const today = todayKey();
   const existing = medicineEvent(med, today);
   const config = medicineConfig(med);
@@ -1691,11 +1713,13 @@ function toggleMedicine(med) {
     saveState();
     render();
     haptic("soft");
+    animateMedicineCard(med, "is-medicine-release");
     showToast(`${config.name} pendiente`, () => {
       state.events.push(removed);
       if (med === "vitaminD") state.vitaminDByDate[today] = removed.timeISO;
       saveState();
       render();
+      animateMedicineCard(med, "is-medicine-stamped");
       haptic("tap");
     });
     return;
@@ -1713,6 +1737,8 @@ function toggleMedicine(med) {
     dose: config.dose,
     note: "",
   }, config.toast);
+  animateMedicineCard(med, "is-medicine-stamped");
+  if (button) animateElement(button, "is-medicine-stamped", 700);
 }
 
 function addEvent(event, message) {
@@ -1721,6 +1747,7 @@ function addEvent(event, message) {
   saveState();
   render();
   haptic("save");
+  animateSavedEvent(event);
   showToast(message, () => {
     state.events = state.events.filter((item) => item.id !== event.id);
     if (event.type === "med" && event.med === "vitaminD") delete state.vitaminDByDate[eventDateKey(event)];
@@ -1728,6 +1755,7 @@ function addEvent(event, message) {
     if (loveNote?.key) delete state.loveNotesSeen[loveNote.key];
     saveState();
     render();
+    animateElement(els.todayEventTotal, "is-count-release", 520);
     haptic("soft");
   });
   if (loveNote) window.setTimeout(() => showLoveNote(loveNote), 650);
@@ -2155,7 +2183,10 @@ function showLoveNote({ dateKey, feedCount, note, emoji }) {
     : `${feedCount} tomas el ${dateToShort(dateKey)} ${emoji || "💛"}`;
   els.loveNoteText.textContent = note;
   if (els.loveNoteDialog.open) els.loveNoteDialog.close();
+  els.loveNoteDialog.classList.remove("is-sparkling");
   els.loveNoteDialog.showModal();
+  void els.loveNoteDialog.offsetWidth;
+  els.loveNoteDialog.classList.add("is-sparkling");
   haptic("soft");
 }
 
@@ -3097,6 +3128,82 @@ function haptic(kind = "tap") {
   navigator.vibrate(patterns[kind] || 8);
 }
 
+function prefersReducedMotion() {
+  return Boolean(window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches);
+}
+
+function animateElement(element, className, duration = 520) {
+  if (!element || prefersReducedMotion()) return;
+  element.classList.remove(className);
+  void element.offsetWidth;
+  element.classList.add(className);
+  window.setTimeout(() => element.classList.remove(className), duration);
+}
+
+function createTapGlow(button, event = null) {
+  if (!button || prefersReducedMotion() || button.disabled) return;
+  const glow = document.createElement("span");
+  glow.className = "tap-glow";
+  glow.setAttribute("aria-hidden", "true");
+  const rect = button.getBoundingClientRect();
+  const x = event?.clientX ? event.clientX - rect.left : rect.width / 2;
+  const y = event?.clientY ? event.clientY - rect.top : rect.height / 2;
+  glow.style.left = `${x}px`;
+  glow.style.top = `${y}px`;
+  button.append(glow);
+  window.setTimeout(() => glow.remove(), 620);
+}
+
+function animateFeedTagButton(tag, selected) {
+  window.requestAnimationFrame(() => {
+    const button = $(`[data-feed-tag="${safeSelectorValue(tag)}"]`);
+    animateElement(button, selected ? "is-selection-pop" : "is-selection-release", 560);
+  });
+}
+
+function animateMedicineCard(med, className) {
+  window.requestAnimationFrame(() => {
+    const card = $(`[data-toggle-med="${safeSelectorValue(med)}"]`);
+    animateElement(card, className, 740);
+  });
+}
+
+function animateSavedEvent(event) {
+  window.requestAnimationFrame(() => {
+    const card = $(`[data-event-id="${safeSelectorValue(event.id)}"]`);
+    animateElement(card, "is-event-saved", 720);
+    if (event.type === "med") animateMedicineCard(event.med, "is-medicine-stamped");
+  });
+}
+
+function showSaveBurst(type = "feed") {
+  if (prefersReducedMotion()) return;
+  const burst = document.createElement("div");
+  burst.className = `save-burst save-burst--${type}`;
+  burst.setAttribute("aria-hidden", "true");
+  ["♡", "♥", "✦", "♡", "✦"].forEach((symbol) => {
+    const span = document.createElement("span");
+    span.textContent = symbol;
+    burst.append(span);
+  });
+  document.body.append(burst);
+  window.setTimeout(() => burst.remove(), 1100);
+}
+
+function showUndoBurst() {
+  if (prefersReducedMotion()) return;
+  const burst = document.createElement("div");
+  burst.className = "undo-burst";
+  burst.setAttribute("aria-hidden", "true");
+  burst.textContent = "↺";
+  document.body.append(burst);
+  window.setTimeout(() => burst.remove(), 760);
+}
+
+function safeSelectorValue(value) {
+  return window.CSS?.escape ? CSS.escape(String(value)) : String(value).replaceAll("\\", "\\\\").replaceAll('"', '\\"');
+}
+
 function showToast(message, undoHandler = null) {
   window.clearTimeout(toastTimer);
   pendingUndo = undoHandler;
@@ -3112,6 +3219,7 @@ function showToast(message, undoHandler = null) {
       const handler = pendingUndo;
       pendingUndo = null;
       els.toast.classList.remove("is-visible");
+      showUndoBurst();
       if (handler) handler();
     });
     els.toast.append(button);

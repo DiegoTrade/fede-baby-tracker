@@ -1,4 +1,4 @@
-const CACHE_NAME = "fede-baby-tracker-v63";
+const CACHE_NAME = "fede-baby-tracker-v64";
 const ACTIVE_FEED_NOTIFICATION_TAG = "fede-active-feed";
 const ACTIVE_FEED_FINISH_ACTION = "finish-feed";
 const PENDING_DB_NAME = "fede-baby-tracker-pending-actions";
@@ -7,8 +7,8 @@ const PENDING_STORE = "actions";
 const ASSETS = [
   "./",
   "./index.html",
-  "./styles.css?v=63",
-  "./app.js?v=63",
+  "./styles.css?v=64",
+  "./app.js?v=64",
   "./historical-data.js?v=23",
   "./app-icon.png",
   "./app-icon-512.png",

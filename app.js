@@ -1,7 +1,7 @@
 import { HISTORICAL_IMPORT } from "./historical-data.js?v=23";
 
 const STORAGE_KEY = "fede-baby-tracker-v3";
-const APP_VERSION = "v61";
+const APP_VERSION = "v62";
 const BACKUP_VERSION = 1;
 const APP_VERSION_KEY = `${STORAGE_KEY}-app-version`;
 const LOVE_MESSAGES_PIN = "1234";
@@ -756,6 +756,11 @@ function renderActiveFeed() {
   els.activeFeedTimer.textContent = activeFeedClock(state.activeFeed, new Date());
   els.pauseFeedButton.textContent = paused ? "Continuar toma" : "Pausar";
   els.pauseFeedButton.classList.toggle("is-paused", paused);
+  $$("[data-feed-tag]").forEach((button) => {
+    const selected = isActiveFeedTagSelected(button.dataset.feedTag);
+    button.classList.toggle("is-active", selected);
+    button.setAttribute("aria-pressed", String(selected));
+  });
 }
 
 function renderMedicineChecklist() {
@@ -1449,13 +1454,80 @@ function resumeFeed() {
 
 function addActiveFeedTag(tag) {
   if (!state.activeFeed) return;
-  if (!state.activeFeed.tags.includes(tag)) {
-    state.activeFeed.tags.push(tag);
+  if (tag === "pee" || tag === "poop") {
+    toggleActiveFeedDiaper(tag);
+    return;
   }
+  const beforeTags = [...(state.activeFeed.tags || [])];
+  state.activeFeed.tags = beforeTags.includes(tag)
+    ? beforeTags.filter((item) => item !== tag)
+    : [...beforeTags, tag];
+  const selected = state.activeFeed.tags.includes(tag);
   saveState();
-  renderActiveFeed();
+  render();
   haptic("tap");
-  showToast(TAG_ICON[tag] || "Añadido");
+  showToast(selected ? `${TAG_ICON[tag] || "Detalle"} anotado` : `${TAG_ICON[tag] || "Detalle"} quitado`, () => {
+    if (!state.activeFeed) return;
+    state.activeFeed.tags = beforeTags;
+    saveState();
+    render();
+    haptic("soft");
+  });
+}
+
+function toggleActiveFeedDiaper(tag) {
+  const feed = state.activeFeed;
+  if (!feed) return;
+  const beforeFeed = structuredClone(feed);
+  feed.tags = (feed.tags || []).filter((item) => item !== "pee" && item !== "poop");
+  const event = activeFeedDiaperEvent(feed);
+  const beforeEvent = event ? structuredClone(event) : null;
+  const diaperId = event?.id || makeId();
+  const nextEvent = event || {
+    id: diaperId,
+    type: "diaper",
+    timeISO: new Date().toISOString(),
+    pee: false,
+    poop: false,
+    gas: false,
+    details: [],
+    note: "Durante toma",
+    feedId: feed.id,
+    source: "active-feed",
+  };
+
+  nextEvent[tag] = !Boolean(nextEvent[tag]);
+  feed.diaperEventId = diaperId;
+
+  const hasDiaperMark = nextEvent.pee || nextEvent.poop;
+  if (hasDiaperMark) {
+    const index = state.events.findIndex((item) => item.id === diaperId);
+    if (index >= 0) state.events[index] = nextEvent;
+    else state.events.push(nextEvent);
+  } else {
+    delete feed.diaperEventId;
+    state.events = state.events.filter((item) => item.id !== diaperId);
+  }
+
+  saveState();
+  render();
+  haptic("tap");
+  showToast(activeFeedDiaperToast(tag, Boolean(nextEvent[tag])), () => {
+    if (state.activeFeed?.id === beforeFeed.id) {
+      if (beforeFeed.diaperEventId) state.activeFeed.diaperEventId = beforeFeed.diaperEventId;
+      else delete state.activeFeed.diaperEventId;
+    }
+    if (beforeEvent) {
+      const index = state.events.findIndex((item) => item.id === beforeEvent.id);
+      if (index >= 0) state.events[index] = beforeEvent;
+      else state.events.push(beforeEvent);
+    } else {
+      state.events = state.events.filter((item) => item.id !== diaperId);
+    }
+    saveState();
+    render();
+    haptic("soft");
+  });
 }
 
 function stopFeed(endISO = new Date().toISOString(), message = "Toma guardada") {
@@ -1469,6 +1541,7 @@ function stopFeed(endISO = new Date().toISOString(), message = "Toma guardada") 
     side: deriveFeedSide(state.activeFeed.segments),
   };
   delete event.pausedAtISO;
+  delete event.diaperEventId;
   state.activeFeed = null;
   closeActiveFeedNotifications();
   addEvent(event, message);
@@ -2197,13 +2270,40 @@ function getRecommendedSide() {
 
 function activeFeedHintText() {
   if (!state.activeFeed) return "";
-  const tags = (state.activeFeed.tags || []).map((tag) => TAG_ICON[tag] || tag).join(" ");
+  const diaperEvent = activeFeedDiaperEvent(state.activeFeed);
+  const diaperTags = [];
+  if (diaperEvent?.poop) diaperTags.push(TAG_ICON.poop);
+  if (diaperEvent?.pee) diaperTags.push(TAG_ICON.pee);
+  const tags = [
+    ...diaperTags,
+    ...(state.activeFeed.tags || []).map((tag) => TAG_ICON[tag] || tag),
+  ].join(" ");
   const openSegment = state.activeFeed.segments.find((segment) => !segment.endISO);
   const side = openSegment?.side || state.activeFeed.side;
   const breastLabel = side === "right" ? "Pecho derecho" : side === "left" ? "Pecho izquierdo" : "Ambos pechos";
   const base = side === "pump" ? "Extracción en curso" : side === "snack" ? "Snack en curso" : breastLabel;
   const text = isActiveFeedPaused() ? `Pausada · ${base}` : base;
   return tags ? `${text} · ${tags}` : text;
+}
+
+function activeFeedDiaperEvent(feed = state.activeFeed) {
+  if (!feed) return null;
+  const id = feed.diaperEventId;
+  return state.events.find((event) => (
+    event.type === "diaper" &&
+    ((id && event.id === id) || (!id && event.feedId === feed.id && event.source === "active-feed"))
+  )) || null;
+}
+
+function isActiveFeedTagSelected(tag) {
+  if (!state.activeFeed) return false;
+  if (tag === "pee" || tag === "poop") return Boolean(activeFeedDiaperEvent(state.activeFeed)?.[tag]);
+  return (state.activeFeed.tags || []).includes(tag);
+}
+
+function activeFeedDiaperToast(tag, selected) {
+  const label = tag === "poop" ? "Popó" : "Pis";
+  return selected ? `${label} anotado` : `${label} quitado`;
 }
 
 function activeFeedElapsedMinutes() {

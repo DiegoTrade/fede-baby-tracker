@@ -784,6 +784,13 @@ body.has-active-feed .active-feed {
   font-weight: 850;
 }
 
+.segmented-action.is-active {
+  background: var(--ink);
+  color: var(--paper);
+  border-color: var(--ink);
+  box-shadow: 0 12px 28px rgba(28, 27, 25, 0.16);
+}
+
 .active-feed__finish {
   margin-top: 0;
 }

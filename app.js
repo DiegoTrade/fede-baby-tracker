@@ -1,7 +1,7 @@
 import { HISTORICAL_IMPORT } from "./historical-data.js?v=23";
 
 const STORAGE_KEY = "fede-baby-tracker-v3";
-const APP_VERSION = "v62";
+const APP_VERSION = "v63";
 const BACKUP_VERSION = 1;
 const APP_VERSION_KEY = `${STORAGE_KEY}-app-version`;
 const LOVE_MESSAGES_PIN = "1234";
@@ -39,7 +39,7 @@ const DIAPER_PRESETS = {
   pee: { pee: true, poop: false, gas: false, label: "Pis", icon: "💧" },
   poop: { pee: false, poop: true, gas: false, label: "Popó", icon: "💩" },
   mixed: { pee: true, poop: true, gas: false, label: "Mixto", icon: "💧💩" },
-  gas: { pee: false, poop: false, gas: true, label: "Gases", icon: "💨" },
+  gas: { pee: false, poop: false, gas: true, label: "Peitos", icon: "💨" },
 };
 
 const TAG_ICON = {
@@ -1006,7 +1006,7 @@ function renderHistorySummary() {
   els.historySummaryGrid.innerHTML = [
     historySummaryCard("Tomas/día", summary.feedsPerDay, `${summary.feeds.length} tomas`),
     historySummaryCard("Pañales/día", summary.diapersPerDay, `${summary.diapers.length} pañales`),
-    historySummaryCard("Popó", summary.poopCount, `${summary.peeCount} pis · ${summary.gasCount} gases`),
+    historySummaryCard("Popó", summary.poopCount, `${summary.peeCount} pis · ${summary.gasCount} peitos`),
     historySummaryCard("Último peso", summary.latestWeight ? formatKg(summary.latestWeight.kg) : "—", summary.latestWeight ? dateToHuman(eventDateKey(summary.latestWeight)) : "Sin peso"),
   ].join("");
   renderRhythmCard();
@@ -1138,7 +1138,7 @@ function eventTagsText(event) {
   if (event.type === "diaper") {
     if (event.pee) tags.push("pis");
     if (event.poop) tags.push("popó");
-    if (event.gas) tags.push("gases");
+    if (event.gas) tags.push("peitos");
     tags.push(...(event.details || []));
   }
   if (event.type === "med") tags.push(event.dose || "");
@@ -3069,7 +3069,7 @@ function diaperLabel(event) {
   const parts = [];
   if (event.pee) parts.push("pis");
   if (event.poop) parts.push("popó");
-  if (event.gas) parts.push("gases");
+  if (event.gas) parts.push("peitos");
   return parts.join(" + ") || "pañal";
 }
 

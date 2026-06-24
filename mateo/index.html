@@ -1,0 +1,638 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#f7f3ec" id="themeColorMeta">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Mateo">
+    <title>Mateo</title>
+    <link rel="manifest" href="./manifest.webmanifest">
+    <link rel="icon" href="./app-icon-192.png" type="image/png">
+    <link rel="apple-touch-icon" href="./apple-touch-icon.png">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <link rel="stylesheet" href="./styles.css?v=1">
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="rail" aria-label="Navegacion principal">
+        <button class="rail__brand" data-tab-target="today" aria-label="Mateo">
+          <img src="./app-icon-192.png" alt="">
+        </button>
+        <nav class="rail__nav">
+          <button class="nav-button is-active" data-tab-target="today" aria-label="Hoy">
+            <span aria-hidden="true">●</span>
+            <span>Hoy</span>
+          </button>
+          <button class="nav-button" data-tab-target="history" aria-label="Historial">
+            <span aria-hidden="true">◷</span>
+            <span>Historial</span>
+          </button>
+          <button class="nav-button" data-tab-target="export" aria-label="Exportar">
+            <span aria-hidden="true">⇩</span>
+            <span>Exportar</span>
+          </button>
+          <button class="nav-button" data-tab-target="settings" aria-label="Ajustes">
+            <span aria-hidden="true">⚙</span>
+            <span>Ajustes</span>
+          </button>
+        </nav>
+      </aside>
+
+      <main class="surface">
+        <section class="screen is-active" data-tab="today">
+          <header class="topbar topbar--brand">
+            <div class="brand-lockup">
+              <div class="lactation-mark lactation-mark--portrait" aria-hidden="true">
+                <img src="./app-icon-192.png" alt="">
+              </div>
+              <div>
+                <p class="eyebrow" id="todayLabel">Hoy</p>
+                <h1 id="babyNameTitle">Mateo</h1>
+              </div>
+            </div>
+            <div class="topbar__actions">
+              <button class="icon-button" id="nightModeButton" type="button" aria-pressed="false" aria-label="Modo noche">
+                <span aria-hidden="true">☾</span>
+              </button>
+              <button class="icon-button" id="installButton" hidden aria-label="Instalar">
+                <span aria-hidden="true">↧</span>
+              </button>
+            </div>
+          </header>
+
+          <section class="now-band" aria-label="Toma">
+            <div class="section-heading section-heading--flush">
+              <h2>Toma</h2>
+              <span id="trustLine">Guardado en este teléfono</span>
+            </div>
+            <div class="feed-hub">
+              <div class="feed-hub__summary">
+                <article>
+                  <span>Última</span>
+                  <strong id="sinceLastFeed">—</strong>
+                  <small id="lastFeedStamp">Sin toma hoy</small>
+                </article>
+                <button class="feed-hub__next" id="recommendedStartButton" type="button">
+                  <span>Siguiente</span>
+                  <strong id="lastSide">—</strong>
+                  <small>Empezar ahora</small>
+                </button>
+                <article>
+                  <span>Hoy</span>
+                  <strong id="feedCount">0</strong>
+                  <small><span id="leftSummary">0 izq.</span> · <span id="rightSummary">0 der.</span></small>
+                </article>
+              </div>
+              <div class="backdate-row feed-hub__backdate" aria-label="Empezó hace">
+                <button class="chip chip--start" data-start-offset="5" type="button">hace 5 min</button>
+                <button class="chip chip--start" data-start-offset="10" type="button">10 min</button>
+                <button class="chip chip--start" data-start-offset="15" type="button">15 min</button>
+                <button class="chip chip--start" data-start-offset="20" type="button">20 min</button>
+              </div>
+              <div class="feed-grid">
+                <button class="feed-button feed-button--left" data-start-feed="left" data-side-button="left" type="button">
+                  <span class="feed-button__icon" aria-hidden="true">←</span>
+                  <strong>Izquierda</strong>
+                  <small id="leftToday">0 hoy</small>
+                </button>
+                <button class="feed-button feed-button--right" data-start-feed="right" data-side-button="right" type="button">
+                  <span class="feed-button__icon" aria-hidden="true">→</span>
+                  <strong>Derecha</strong>
+                  <small id="rightToday">0 hoy</small>
+                </button>
+                <button class="feed-button feed-button--both" data-start-feed="both" type="button">
+                  <span class="feed-button__icon" aria-hidden="true">↔</span>
+                  <strong>Ambas</strong>
+                  <small>toma mixta</small>
+                </button>
+                <button class="feed-button feed-button--pump" data-start-feed="pump" type="button">
+                  <span class="feed-button__icon" aria-hidden="true">⇣</span>
+                  <strong>Extracción</strong>
+                  <small>sacaleche</small>
+                </button>
+              </div>
+              <button class="ghost-command" data-start-feed="snack" type="button">Snack intermitente</button>
+            </div>
+            <div class="alert-stack" id="alertStack" aria-live="polite"></div>
+          </section>
+
+          <section class="active-feed" id="activeFeedPanel" hidden aria-live="polite">
+            <div class="active-feed__main">
+              <div class="active-feed__pulse" aria-hidden="true"><span></span></div>
+              <div class="active-feed__meta">
+                <span class="live-dot" aria-hidden="true"></span>
+                <span id="activeFeedSide">Toma en curso</span>
+              </div>
+              <p class="active-feed__hint" id="activeFeedHint">Pecho actual</p>
+              <div class="active-feed__time" id="activeFeedTimer">00:00</div>
+              <span class="active-feed__label">Duración de la toma</span>
+            </div>
+            <div class="active-feed__controls">
+              <div class="control-group">
+                <span>Cambiar pecho</span>
+                <div class="control-row">
+                  <button class="segmented-action" data-segment-side="left" type="button">Izquierda</button>
+                  <button class="segmented-action" data-segment-side="right" type="button">Derecha</button>
+                </div>
+              </div>
+              <div class="control-group">
+                <span>Anotar durante la toma</span>
+                <div class="control-row">
+                  <button class="segmented-action" data-feed-tag="poop" type="button" aria-pressed="false">💩 Popó</button>
+                  <button class="segmented-action" data-feed-tag="pee" type="button" aria-pressed="false">💧 Pis</button>
+                  <button class="segmented-action" data-feed-tag="gas" type="button" aria-pressed="false">💨 Peitos</button>
+                </div>
+              </div>
+              <div class="active-feed__finish">
+                <button class="secondary-button" id="cancelFeedButton" type="button">Cancelar</button>
+                <button class="secondary-button" id="pauseFeedButton" type="button">Pausar</button>
+                <button class="primary-button" id="stopFeedButton" type="button">Guardar toma</button>
+              </div>
+            </div>
+          </section>
+
+          <section class="diaper-hub" aria-label="Pañal">
+            <div class="section-heading">
+              <h2>Pañal</h2>
+              <span><strong id="diaperCount">0</strong> · <span id="diaperBreakdown">Sin pañales</span></span>
+            </div>
+            <div class="diaper-grid">
+              <button class="diaper-button" data-diaper="pee" type="button">
+                <span aria-hidden="true">💧</span>
+                <strong>Pis</strong>
+              </button>
+              <button class="diaper-button" data-diaper="poop" type="button">
+                <span aria-hidden="true">💩</span>
+                <strong>Popó</strong>
+              </button>
+              <button class="diaper-button" data-diaper="mixed" type="button">
+                <span aria-hidden="true">💧💩</span>
+                <strong>Mixto</strong>
+              </button>
+            </div>
+            <details class="diaper-detail-panel" aria-label="Detalles de popó">
+              <summary class="diaper-detail-summary">
+                <span>Detalle de popó</span>
+                <small>Opcional después de registrar</small>
+              </summary>
+              <div class="diaper-detail-content">
+                <div class="chip-row chip-row--diaper" aria-label="Detalles de popó">
+                  <button class="chip" data-diaper-detail="aguado" type="button">AGUADO</button>
+                  <button class="chip" data-diaper-detail="moco" type="button">CON MOCO</button>
+                  <button class="chip" data-diaper-detail="mucho" type="button">MUCHO</button>
+                  <button class="chip" data-diaper-detail="poquito" type="button">POQUITO</button>
+                  <button class="chip" data-diaper-detail="le costó" type="button">LE COSTÓ</button>
+                </div>
+              </div>
+            </details>
+          </section>
+
+          <section class="medicine-hub" aria-label="Medicinas">
+            <div class="section-heading">
+              <h2>Medicinas</h2>
+              <span>Toca para marcar</span>
+            </div>
+            <div class="medicine-checklist" id="medicineChecklist" aria-label="Medicinas de hoy"></div>
+          </section>
+
+          <section class="note-hub" aria-label="Nota rápida">
+            <div class="section-heading">
+              <h2>Nota rápida</h2>
+              <span>Un toque</span>
+            </div>
+            <form class="note-capture" id="noteForm">
+              <input id="quickNoteInput" name="note" autocomplete="off" placeholder="Escribir nota" maxlength="160">
+              <button class="icon-button icon-button--dark" type="submit" aria-label="Guardar nota">
+                <span aria-hidden="true">＋</span>
+              </button>
+            </form>
+            <div class="chip-row" aria-label="Notas frecuentes">
+              <button class="chip" data-note-chip="moco" type="button">MOCO</button>
+              <button class="chip" data-note-chip="aguado" type="button">AGUADO</button>
+              <button class="chip" data-note-chip="siesta" type="button">SIESTA</button>
+              <button class="chip" data-note-chip="berrinche" type="button">BERRINCHE</button>
+              <button class="chip" data-note-chip="vómito" type="button">VÓMITO</button>
+              <button class="chip" data-note-chip="mastitis" type="button">MASTITIS</button>
+            </div>
+          </section>
+
+          <section class="quick-log-band" aria-label="Registro manual">
+            <button class="more-options-summary" id="manualButton" type="button">
+              <span>Registro manual</span>
+              <small>Agregar algo pasado o detalles</small>
+            </button>
+          </section>
+
+          <section class="timeline-band" aria-label="Linea de tiempo">
+            <div class="section-heading">
+              <h2>Reciente</h2>
+              <span id="todayEventTotal">0 registros</span>
+            </div>
+            <div class="timeline" id="todayTimeline"></div>
+          </section>
+        </section>
+
+        <section class="screen" data-tab="history">
+          <header class="topbar">
+            <div>
+              <p class="eyebrow">Historial</p>
+              <h1>Días</h1>
+            </div>
+          </header>
+          <section class="history-dashboard" aria-label="Resumen histórico">
+            <div class="history-tools">
+              <div class="segmented-control" aria-label="Rango del resumen">
+                <button class="segmented-control__button is-active" data-history-range="7" type="button">7 días</button>
+                <button class="segmented-control__button" data-history-range="30" type="button">30 días</button>
+              </div>
+              <div class="history-search">
+                <input id="historySearchInput" type="search" autocomplete="off" placeholder="Buscar moco, mastitis, peso...">
+              </div>
+            </div>
+            <div class="history-summary-grid" id="historySummaryGrid"></div>
+            <div class="rhythm-card" id="rhythmCard"></div>
+            <div class="history-filter-row" aria-label="Filtrar historial">
+              <button class="chip is-active" data-history-filter="all" type="button">Todo</button>
+              <button class="chip" data-history-filter="feed" type="button">Tomas</button>
+              <button class="chip" data-history-filter="diaper" type="button">Pañales</button>
+              <button class="chip" data-history-filter="med" type="button">Medicina</button>
+              <button class="chip" data-history-filter="weight" type="button">Peso</button>
+              <button class="chip" data-history-filter="note" type="button">Notas</button>
+            </div>
+          </section>
+          <section class="pediatrician-band">
+            <div class="section-heading">
+              <h2>Pediatra</h2>
+              <button class="tiny-command" id="copyPediatricianButton" type="button">Copiar</button>
+            </div>
+            <div class="pediatrician-card" id="pediatricianSummary"></div>
+          </section>
+          <section class="history-band">
+            <div class="history-layout">
+              <div class="history-main">
+                <div class="section-heading">
+                  <h2>Recientes</h2>
+                  <span id="recentDaysMeta">Últimos días</span>
+                </div>
+                <div class="history-list" id="recentDaysList"></div>
+                <div class="section-heading section-heading--archive">
+                  <h2>Archivo</h2>
+                  <span id="archiveMeta">Por mes</span>
+                </div>
+                <div class="month-archive" id="monthArchive"></div>
+              </div>
+              <aside class="day-detail" id="dayDetailPanel" aria-label="Detalle del día"></aside>
+            </div>
+          </section>
+        </section>
+
+        <section class="screen" data-tab="export">
+          <header class="topbar">
+            <div>
+              <p class="eyebrow">Respaldo</p>
+              <h1>Exportar</h1>
+            </div>
+          </header>
+          <section class="backup-card">
+            <div>
+              <p class="backup-card__eyebrow">Respaldo completo</p>
+              <h2>Guardar todo</h2>
+              <p>Registros, ajustes, mensajes de Mateo y datos importados en un archivo restaurable.</p>
+            </div>
+            <div class="export-actions">
+              <button class="primary-button" id="shareBackupButton" type="button">Compartir respaldo</button>
+              <button class="secondary-button" id="downloadBackupButton" type="button">Descargar .json</button>
+            </div>
+          </section>
+          <section class="export-band">
+            <div class="export-band__head">
+              <div>
+                <p class="backup-line" id="backupStatus">Guardado en este teléfono</p>
+                <h2>Resumen legible</h2>
+                <p>Para mandar por WhatsApp, guardar en Notas o compartir con el pediatra.</p>
+              </div>
+            </div>
+            <details class="export-advanced" open>
+              <summary>
+                <span>Vista de exportación</span>
+                <small>Markdown actualizado con todos los registros</small>
+              </summary>
+              <div class="export-actions">
+                <button class="primary-button" id="shareMarkdownButton" type="button">Compartir</button>
+                <button class="secondary-button" id="copyMarkdownButton" type="button">Copiar</button>
+                <button class="secondary-button" id="downloadMarkdownButton" type="button">Descargar</button>
+              </div>
+              <textarea id="markdownPreview" spellcheck="false" readonly></textarea>
+            </details>
+          </section>
+        </section>
+
+        <section class="screen" data-tab="settings">
+          <header class="topbar">
+            <div>
+              <p class="eyebrow">Ajustes</p>
+              <h1>Ajustes</h1>
+            </div>
+          </header>
+          <form class="settings-form" id="settingsForm">
+            <label>
+              <span>Nombre</span>
+              <input id="babyNameInput" name="babyName" autocomplete="off">
+            </label>
+            <label>
+              <span>Nacimiento</span>
+              <input id="birthDateInput" name="birthDate" type="date">
+            </label>
+            <section class="settings-medicine settings-form__wide">
+              <div class="section-heading">
+                <h2>Medicinas</h2>
+                <span id="medicineReminderStatus">Avisos opcionales</span>
+              </div>
+              <div class="medicine-settings-list" id="medicineSettingsList"></div>
+              <div class="medicine-add-card">
+                <label>
+                  <span>Nueva medicina</span>
+                  <input id="medicineNameInput" autocomplete="off" placeholder="Ej. Hierro o cólicos">
+                </label>
+                <label>
+                  <span>Dosis</span>
+                  <input id="medicineDoseInput" autocomplete="off" placeholder="5 gotas">
+                </label>
+                <label>
+                  <span>Hora</span>
+                  <input id="medicineTimeInput" type="time" value="09:00">
+                </label>
+                <label class="medicine-reminder-toggle">
+                  <input id="medicineReminderInput" type="checkbox" checked>
+                  <span>Recordar</span>
+                </label>
+                <button class="secondary-button" id="addMedicineButton" type="button">Agregar medicina</button>
+                <button class="secondary-button" id="enableNotificationsButton" type="button">Permitir avisos</button>
+              </div>
+              <small>Agrega solo medicinas que la familia quiera registrar. Puedes ajustar dosis, hora y recordatorios; si el iPhone no permite notificaciones, quedan como pendientes dentro de Medicinas.</small>
+            </section>
+            <button class="primary-button" type="submit">Guardar ajustes</button>
+          </form>
+          <details class="advanced-settings">
+            <summary>
+              <span>Avanzado</span>
+              <small>Importar, restaurar, instalación y datos</small>
+            </summary>
+            <div class="advanced-settings__content">
+              <section class="import-zone">
+                <div>
+                  <h2>Notas antiguas</h2>
+                  <p class="import-zone__meta" id="importNotesMeta">Listo para importar</p>
+                </div>
+                <button class="primary-button" id="importNotesButton" type="button">Importar notas</button>
+              </section>
+              <section class="import-zone">
+                <div>
+                  <h2>Restaurar respaldo</h2>
+                  <p class="import-zone__meta" id="restoreBackupMeta">Usa un .json exportado por esta app</p>
+                </div>
+                <input class="restore-input" id="restoreBackupInput" type="file" accept=".json,application/json">
+                <button class="primary-button" id="restoreBackupButton" type="button">Restaurar</button>
+              </section>
+              <section class="import-zone app-status-zone">
+                <div>
+                  <h2>Modo app</h2>
+                  <p class="import-zone__meta" id="appInstallStatus">Comprobando instalación</p>
+                </div>
+                <span class="app-version-pill" id="appVersionStatus">v61</span>
+              </section>
+              <section class="settings-secret" id="loveMessagesSecret">
+                <div class="settings-secret__locked" id="loveMessagesLockedPanel">
+                  <div>
+                    <span class="settings-secret__eyebrow">Privado</span>
+                    <h2>Mensajes</h2>
+                    <p>Área bloqueada para editar las sorpresas.</p>
+                  </div>
+                  <div class="settings-secret__pin">
+                    <label>
+                      <span>PIN privado</span>
+                      <input id="loveMessagesPinInput" type="password" inputmode="numeric" autocomplete="off" maxlength="4" placeholder="PIN">
+                    </label>
+                    <button class="secondary-button" id="unlockLoveMessagesButton" type="button">Desbloquear</button>
+                  </div>
+                  <p class="settings-secret__meta" id="loveMessagesPinMeta">Solo para editar las sorpresas.</p>
+                </div>
+                <div class="settings-secret__unlocked" id="loveMessagesEditor" hidden>
+                  <label>
+                    <span>Mensajes de Mateo</span>
+                    <textarea id="loveMessagesInput" name="loveMessages" rows="7" spellcheck="true"></textarea>
+                    <small>Uno por línea. Aparecen cada 3 tomas registradas.</small>
+                  </label>
+                  <div class="settings-secret__actions">
+                    <button class="secondary-button" id="resetLoveMessagesButton" type="button">Mensajes originales</button>
+                    <button class="secondary-button" id="lockLoveMessagesButton" type="button">Ocultar</button>
+                  </div>
+                </div>
+              </section>
+              <section class="danger-zone">
+                <button class="secondary-button" id="seedButton" type="button">Cargar ejemplo</button>
+                <button class="secondary-button secondary-button--danger" id="clearButton" type="button">Borrar datos</button>
+              </section>
+            </div>
+          </details>
+        </section>
+      </main>
+
+      <div class="bottom-shell" aria-label="Controles de la app">
+        <nav class="bottom-nav" aria-label="Navegacion principal">
+          <button class="nav-button is-active" data-tab-target="today">
+            <span aria-hidden="true">●</span>
+            <span>Hoy</span>
+          </button>
+          <button class="nav-button" data-tab-target="history">
+            <span aria-hidden="true">◷</span>
+            <span>Días</span>
+          </button>
+          <button class="nav-button" data-tab-target="export">
+            <span aria-hidden="true">⇩</span>
+            <span>Exportar</span>
+          </button>
+          <button class="nav-button" data-tab-target="settings">
+            <span aria-hidden="true">⚙</span>
+            <span>Ajustes</span>
+          </button>
+        </nav>
+      </div>
+    </div>
+
+    <dialog class="manual-dialog" id="manualDialog">
+      <form method="dialog" class="manual-card" id="manualForm">
+        <header>
+          <h2>Registro manual</h2>
+          <button class="icon-button" id="manualCloseButton" type="button" aria-label="Cerrar">
+            <span aria-hidden="true">×</span>
+          </button>
+        </header>
+        <input id="manualType" type="hidden" value="feed">
+        <div class="manual-type-grid" aria-label="Tipo de registro">
+          <button class="manual-type is-active" data-manual-type="feed" type="button">Toma</button>
+          <button class="manual-type" data-manual-type="diaper" type="button">Pañal</button>
+          <button class="manual-type" data-manual-type="medicine" type="button">Medicina</button>
+          <button class="manual-type" data-manual-type="note" type="button">Nota</button>
+          <button class="manual-type" data-manual-type="weight" type="button">Peso</button>
+        </div>
+        <div class="manual-when">
+          <label>
+            <span>Día</span>
+            <input id="manualDate" type="date">
+          </label>
+          <label>
+            <span>Hora</span>
+            <input id="manualTime" type="time">
+          </label>
+        </div>
+
+        <section class="manual-panel" id="manualFeedPanel">
+          <div class="manual-grid">
+            <label id="manualSideWrap">
+              <span>Lado</span>
+              <select id="manualSide">
+                <option value="left">Izquierda</option>
+                <option value="right">Derecha</option>
+                <option value="both">Ambas</option>
+                <option value="pump">Extracción</option>
+                <option value="snack">Snack</option>
+              </select>
+            </label>
+            <label id="manualDurationWrap">
+              <span>Minutos</span>
+              <input id="manualDuration" type="number" min="1" max="180" inputmode="numeric" value="15">
+            </label>
+          </div>
+        </section>
+
+        <section class="manual-panel" id="manualDiaperPanel" hidden>
+          <label id="manualDiaperWrap">
+            <span>Tipo de pañal</span>
+            <select id="manualDiaper">
+              <option value="pee">Pis</option>
+              <option value="poop">Popó</option>
+              <option value="mixed">Pis + popó</option>
+              <option value="gas">Peitos</option>
+            </select>
+          </label>
+        </section>
+
+        <section class="manual-panel" id="manualMedicinePanel" hidden>
+          <label id="manualMedicineWrap">
+            <span>Medicina</span>
+            <select id="manualMedicine">
+              <option value="vitaminD">Vitamina D · 2 gotas</option>
+            </select>
+          </label>
+        </section>
+
+        <section class="manual-panel" id="manualWeightPanel" hidden>
+          <label id="manualWeightWrap">
+            <span>Kg</span>
+            <input id="manualWeight" type="number" min="0" step="0.001" inputmode="decimal" placeholder="4.280">
+          </label>
+        </section>
+
+        <label id="manualNoteWrap">
+          <span id="manualNoteLabel">Nota opcional</span>
+          <input id="manualNote" maxlength="160" autocomplete="off" placeholder="Opcional">
+        </label>
+        <p class="manual-preview" id="manualPreview">Toma de 15 min ahora</p>
+        <button class="primary-button" value="default">Guardar registro</button>
+      </form>
+    </dialog>
+
+    <dialog class="manual-dialog" id="editDialog">
+      <form method="dialog" class="manual-card" id="editForm">
+        <header>
+          <h2>Editar registro</h2>
+          <button class="icon-button" id="editCloseButton" type="button" aria-label="Cerrar">
+            <span aria-hidden="true">×</span>
+          </button>
+        </header>
+        <input id="editEventId" type="hidden">
+        <div class="manual-when">
+          <label>
+            <span>Día</span>
+            <input id="editDate" type="date">
+          </label>
+          <label>
+            <span>Hora</span>
+            <input id="editTime" type="time">
+          </label>
+        </div>
+        <section class="manual-panel" id="editFeedPanel" hidden>
+          <div class="manual-grid">
+            <label>
+              <span>Lado</span>
+              <select id="editSide">
+                <option value="left">Izquierda</option>
+                <option value="right">Derecha</option>
+                <option value="both">Ambas</option>
+                <option value="pump">Extracción</option>
+                <option value="snack">Snack</option>
+              </select>
+            </label>
+            <label>
+              <span>Minutos</span>
+              <input id="editDuration" type="number" min="1" max="180" inputmode="numeric">
+            </label>
+          </div>
+        </section>
+        <section class="manual-panel" id="editDiaperPanel" hidden>
+          <label>
+            <span>Tipo de pañal</span>
+            <select id="editDiaper">
+              <option value="pee">Pis</option>
+              <option value="poop">Popó</option>
+              <option value="mixed">Pis + popó</option>
+              <option value="gas">Peitos</option>
+            </select>
+          </label>
+        </section>
+        <section class="manual-panel" id="editMedicinePanel" hidden>
+          <label>
+            <span>Medicina</span>
+            <select id="editMedicine">
+              <option value="vitaminD">Vitamina D · 2 gotas</option>
+            </select>
+          </label>
+        </section>
+        <section class="manual-panel" id="editWeightPanel" hidden>
+          <label>
+            <span>Kg</span>
+            <input id="editWeight" type="number" min="0" step="0.001" inputmode="decimal">
+          </label>
+        </section>
+        <label>
+          <span id="editNoteLabel">Nota</span>
+          <input id="editNote" maxlength="160" autocomplete="off">
+        </label>
+        <p class="manual-preview" id="editPreview">Editando registro</p>
+        <button class="primary-button" value="default">Guardar cambios</button>
+      </form>
+    </dialog>
+
+    <dialog class="love-note-dialog" id="loveNoteDialog">
+      <section class="love-note-card" aria-labelledby="loveNoteCount">
+        <div class="love-note-card__effects" aria-hidden="true">
+          <span>♡</span>
+          <span>♥</span>
+          <span>♡</span>
+          <span>♥</span>
+          <span>♡</span>
+        </div>
+        <div class="love-note-card__mark" id="loveNoteMark" aria-hidden="true">💛</div>
+        <h2 id="loveNoteCount">3 tomas hoy</h2>
+        <p class="love-note-card__kicker">Mateo dice</p>
+        <p id="loveNoteText">Gracias, mami. Te amo.</p>
+        <button class="primary-button" id="loveNoteCloseButton" type="button">Seguir</button>
+      </section>
+    </dialog>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script src="./app.js?v=1" type="module"></script>
+  </body>
+</html>

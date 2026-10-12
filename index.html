@@ -11,7 +11,7 @@
     <link rel="icon" href="./app-icon-192.png" type="image/png">
     <link rel="apple-touch-icon" href="./apple-touch-icon.png">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <link rel="stylesheet" href="./styles.css?v=65">
+    <link rel="stylesheet" href="./styles.css?v=66">
   </head>
   <body>
     <div class="app-shell">
@@ -152,6 +152,29 @@
             </div>
           </section>
 
+          <section class="nap-hub" aria-labelledby="napHeading">
+            <div class="section-heading">
+              <h2 id="napHeading">Siesta</h2>
+              <button class="tiny-command" id="pastNapButton" type="button">Anotar pasada</button>
+            </div>
+            <div class="nap-card" id="napCard">
+              <div class="nap-card__status">
+                <span class="nap-card__moon" aria-hidden="true">☾</span>
+                <div>
+                  <strong id="napStatus" role="status">¿Se durmió?</strong>
+                  <span id="napMeta">Sin siestas hoy</span>
+                </div>
+                <div class="nap-card__timer" id="napTimer" role="timer" aria-live="off" aria-label="Duración de la siesta" hidden>00:00</div>
+              </div>
+              <div class="nap-card__actions">
+                <button class="primary-button nap-start" id="startNapButton" type="button"><span aria-hidden="true">☾</span> Empezar siesta</button>
+                <button class="secondary-button" id="cancelNapButton" type="button" hidden>Cancelar</button>
+                <button class="primary-button" id="stopNapButton" type="button" hidden>Se despertó</button>
+              </div>
+              <div class="nap-card__summary" id="napSummary">Sin siestas hoy</div>
+            </div>
+          </section>
+
           <section class="diaper-hub" aria-label="Pañal">
             <div class="section-heading">
               <h2>Pañal</h2>
@@ -210,7 +233,6 @@
             <div class="chip-row" aria-label="Notas frecuentes">
               <button class="chip" data-note-chip="moco" type="button">MOCO</button>
               <button class="chip" data-note-chip="aguado" type="button">AGUADO</button>
-              <button class="chip" data-note-chip="siesta" type="button">SIESTA</button>
               <button class="chip" data-note-chip="berrinche" type="button">BERRINCHE</button>
               <button class="chip" data-note-chip="vómito" type="button">VÓMITO</button>
               <button class="chip" data-note-chip="mastitis" type="button">MASTITIS</button>
@@ -255,6 +277,7 @@
             <div class="history-filter-row" aria-label="Filtrar historial">
               <button class="chip is-active" data-history-filter="all" type="button">Todo</button>
               <button class="chip" data-history-filter="feed" type="button">Tomas</button>
+              <button class="chip" data-history-filter="nap" type="button">Siestas</button>
               <button class="chip" data-history-filter="diaper" type="button">Pañales</button>
               <button class="chip" data-history-filter="med" type="button">Medicina</button>
               <button class="chip" data-history-filter="weight" type="button">Peso</button>
@@ -472,6 +495,7 @@
         <input id="manualType" type="hidden" value="feed">
         <div class="manual-type-grid" aria-label="Tipo de registro">
           <button class="manual-type is-active" data-manual-type="feed" type="button">Toma</button>
+          <button class="manual-type" data-manual-type="nap" type="button">Siesta</button>
           <button class="manual-type" data-manual-type="diaper" type="button">Pañal</button>
           <button class="manual-type" data-manual-type="medicine" type="button">Medicina</button>
           <button class="manual-type" data-manual-type="note" type="button">Nota</button>
@@ -483,7 +507,7 @@
             <input id="manualDate" type="date">
           </label>
           <label>
-            <span>Hora</span>
+            <span id="manualTimeLabel">Hora</span>
             <input id="manualTime" type="time">
           </label>
         </div>
@@ -505,6 +529,20 @@
               <input id="manualDuration" type="number" min="1" max="180" inputmode="numeric" value="15">
             </label>
           </div>
+        </section>
+
+        <section class="manual-panel" id="manualNapPanel" hidden>
+          <div class="manual-grid">
+            <label>
+              <span>Día al despertar</span>
+              <input id="manualNapEndDate" type="date" required disabled>
+            </label>
+            <label>
+              <span>Se despertó</span>
+              <input id="manualNapEndTime" type="time" required disabled>
+            </label>
+          </div>
+          <p class="nap-form-error" id="manualNapError" role="alert" hidden></p>
         </section>
 
         <section class="manual-panel" id="manualDiaperPanel" hidden>
@@ -560,7 +598,7 @@
             <input id="editDate" type="date">
           </label>
           <label>
-            <span>Hora</span>
+            <span id="editTimeLabel">Hora</span>
             <input id="editTime" type="time">
           </label>
         </div>
@@ -581,6 +619,19 @@
               <input id="editDuration" type="number" min="1" max="180" inputmode="numeric">
             </label>
           </div>
+        </section>
+        <section class="manual-panel" id="editNapPanel" hidden>
+          <div class="manual-grid">
+            <label>
+              <span>Día al despertar</span>
+              <input id="editNapEndDate" type="date" required disabled>
+            </label>
+            <label>
+              <span>Se despertó</span>
+              <input id="editNapEndTime" type="time" required disabled>
+            </label>
+          </div>
+          <p class="nap-form-error" id="editNapError" role="alert" hidden></p>
         </section>
         <section class="manual-panel" id="editDiaperPanel" hidden>
           <label>
@@ -635,6 +686,6 @@
     </dialog>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
-    <script src="./app.js?v=65" type="module"></script>
+    <script src="./app.js?v=66" type="module"></script>
   </body>
 </html>

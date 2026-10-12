@@ -1,4 +1,4 @@
-const CACHE_NAME = "fede-baby-tracker-v65";
+const CACHE_NAME = "fede-baby-tracker-v66";
 const ACTIVE_FEED_NOTIFICATION_TAG = "fede-active-feed";
 const ACTIVE_FEED_FINISH_ACTION = "finish-feed";
 const PENDING_DB_NAME = "fede-baby-tracker-pending-actions";
@@ -7,8 +7,8 @@ const PENDING_STORE = "actions";
 const ASSETS = [
   "./",
   "./index.html",
-  "./styles.css?v=65",
-  "./app.js?v=65",
+  "./styles.css?v=66",
+  "./app.js?v=66",
   "./historical-data.js?v=23",
   "./app-icon.png",
   "./app-icon-512.png",
@@ -25,7 +25,7 @@ self.addEventListener("install", (event) => {
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
-      Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key)))
+      Promise.all(keys.filter((key) => key.startsWith("fede-baby-tracker-v") && key !== CACHE_NAME).map((key) => caches.delete(key)))
     )
   );
   self.clients.claim();

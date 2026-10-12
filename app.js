@@ -1,7 +1,7 @@
 import { HISTORICAL_IMPORT } from "./historical-data.js?v=23";
 
 const STORAGE_KEY = "fede-baby-tracker-v3";
-const APP_VERSION = "v65";
+const APP_VERSION = "v66";
 const BACKUP_VERSION = 1;
 const APP_VERSION_KEY = `${STORAGE_KEY}-app-version`;
 const LOVE_MESSAGES_PIN = "1234";
@@ -113,6 +113,7 @@ const DEFAULT_STATE = {
   loveNotesSeen: {},
   lastExportISO: "",
   activeFeed: null,
+  activeNap: null,
 };
 
 const $ = (selector, root = document) => root.querySelector(selector);
@@ -154,6 +155,15 @@ const els = {
   pauseFeedButton: $("#pauseFeedButton"),
   stopFeedButton: $("#stopFeedButton"),
   cancelFeedButton: $("#cancelFeedButton"),
+  napCard: $("#napCard"),
+  napStatus: $("#napStatus"),
+  napMeta: $("#napMeta"),
+  napTimer: $("#napTimer"),
+  napSummary: $("#napSummary"),
+  startNapButton: $("#startNapButton"),
+  stopNapButton: $("#stopNapButton"),
+  cancelNapButton: $("#cancelNapButton"),
+  pastNapButton: $("#pastNapButton"),
   leftSummary: $("#leftSummary"),
   rightSummary: $("#rightSummary"),
   leftToday: $("#leftToday"),
@@ -221,7 +231,12 @@ const els = {
   manualType: $("#manualType"),
   manualDate: $("#manualDate"),
   manualTime: $("#manualTime"),
+  manualTimeLabel: $("#manualTimeLabel"),
   manualFeedPanel: $("#manualFeedPanel"),
+  manualNapPanel: $("#manualNapPanel"),
+  manualNapEndDate: $("#manualNapEndDate"),
+  manualNapEndTime: $("#manualNapEndTime"),
+  manualNapError: $("#manualNapError"),
   manualDiaperPanel: $("#manualDiaperPanel"),
   manualMedicinePanel: $("#manualMedicinePanel"),
   manualWeightPanel: $("#manualWeightPanel"),
@@ -247,7 +262,12 @@ const els = {
   editEventId: $("#editEventId"),
   editDate: $("#editDate"),
   editTime: $("#editTime"),
+  editTimeLabel: $("#editTimeLabel"),
   editFeedPanel: $("#editFeedPanel"),
+  editNapPanel: $("#editNapPanel"),
+  editNapEndDate: $("#editNapEndDate"),
+  editNapEndTime: $("#editNapEndTime"),
+  editNapError: $("#editNapError"),
   editDiaperPanel: $("#editDiaperPanel"),
   editMedicinePanel: $("#editMedicinePanel"),
   editWeightPanel: $("#editWeightPanel"),
@@ -310,6 +330,10 @@ function bindEvents() {
   els.stopFeedButton.addEventListener("click", () => stopFeed());
   els.pauseFeedButton.addEventListener("click", toggleFeedPause);
   els.cancelFeedButton.addEventListener("click", cancelFeed);
+  els.startNapButton.addEventListener("click", startNap);
+  els.stopNapButton.addEventListener("click", stopNap);
+  els.cancelNapButton.addEventListener("click", cancelNap);
+  els.pastNapButton.addEventListener("click", () => openManualDialog("nap"));
   els.nightModeButton.addEventListener("click", toggleNightMode);
   els.addMedicineButton.addEventListener("click", addMedicineFromSettings);
   els.enableNotificationsButton.addEventListener("click", requestMedicineNotifications);
@@ -391,12 +415,12 @@ function bindEvents() {
   els.seedButton.addEventListener("click", seedExample);
   els.importNotesButton.addEventListener("click", importHistoricalNotes);
   els.clearButton.addEventListener("click", clearData);
-  els.manualButton.addEventListener("click", openManualDialog);
+  els.manualButton.addEventListener("click", () => openManualDialog());
   els.manualCloseButton.addEventListener("click", () => els.manualDialog.close());
   $$("[data-manual-type]").forEach((button) => {
     button.addEventListener("click", () => setManualType(button.dataset.manualType));
   });
-  [els.manualTime, els.manualDate, els.manualDuration, els.manualSide, els.manualDiaper, els.manualMedicine, els.manualWeight, els.manualNote].forEach((input) => {
+  [els.manualTime, els.manualDate, els.manualNapEndDate, els.manualNapEndTime, els.manualDuration, els.manualSide, els.manualDiaper, els.manualMedicine, els.manualWeight, els.manualNote].forEach((input) => {
     input.addEventListener("input", renderManualFields);
     input.addEventListener("change", renderManualFields);
   });
@@ -404,7 +428,7 @@ function bindEvents() {
   els.copyPediatricianButton.addEventListener("click", copyPediatricianSummary);
   els.editCloseButton.addEventListener("click", () => els.editDialog.close());
   els.editForm.addEventListener("submit", saveEditedEvent);
-  [els.editDate, els.editTime, els.editSide, els.editDuration, els.editDiaper, els.editMedicine, els.editWeight, els.editNote].forEach((input) => {
+  [els.editDate, els.editTime, els.editNapEndDate, els.editNapEndTime, els.editSide, els.editDuration, els.editDiaper, els.editMedicine, els.editWeight, els.editNote].forEach((input) => {
     input.addEventListener("input", renderEditPreview);
     input.addEventListener("change", renderEditPreview);
   });
@@ -476,6 +500,7 @@ function bindEvents() {
       return;
     }
     applyPendingFeedActions();
+    renderNap();
   });
   window.addEventListener("pagehide", () => showActiveFeedNotification({ force: true, reason: "pagehide" }));
   window.addEventListener("focus", applyPendingFeedActions);
@@ -635,6 +660,7 @@ function normalizeState(saved = {}) {
     vitaminDByDate: isPlainObject(source.vitaminDByDate) ? source.vitaminDByDate : {},
     events: Array.isArray(source.events) ? source.events.filter(Boolean) : [],
     activeFeed: isPlainObject(source.activeFeed) ? source.activeFeed : null,
+    activeNap: isPlainObject(source.activeNap) && source.activeNap.type === "nap" && Number.isFinite(Date.parse(source.activeNap.startISO)) ? source.activeNap : null,
     lastExportISO: typeof source.lastExportISO === "string" ? source.lastExportISO : "",
   };
   next.settings.medicines = normalizeMedicines(next.settings.medicines, next.settings);
@@ -697,6 +723,7 @@ function render() {
   renderMedicineNotificationStatus();
 
   renderActiveFeed();
+  renderNap();
   els.alertStack.innerHTML = "";
   renderTimeline(todayEvents);
   renderHistory();
@@ -769,6 +796,105 @@ function renderActiveFeed() {
     button.classList.toggle("is-active", selected);
     button.setAttribute("aria-pressed", String(selected));
   });
+}
+
+function renderNap() {
+  const nap = state.activeNap;
+  const today = todayKey();
+  const stats = napStatsForDate(today);
+  const latest = state.events.filter((event) => event.type === "nap").sort((a, b) => Date.parse(b.endISO) - Date.parse(a.endISO))[0];
+  els.napCard.classList.toggle("is-sleeping", Boolean(nap));
+  els.startNapButton.hidden = Boolean(nap);
+  els.stopNapButton.hidden = !nap;
+  els.cancelNapButton.hidden = !nap;
+  els.napTimer.hidden = !nap;
+  const status = nap ? "Durmiendo" : "¿Se durmió?";
+  if (els.napStatus.textContent !== status) els.napStatus.textContent = status;
+  els.napMeta.textContent = nap
+    ? `Desde ${formatTime(new Date(nap.startISO))}${eventDateKey(nap) !== today ? ` · ${dateToShort(eventDateKey(nap))}` : ""}`
+    : latest ? `Última · ${dateToShort(eventDateKey(latest))} · ${formatDuration(napDurationMs(latest))}` : "Su primer descansito";
+  if (nap) els.napTimer.textContent = napClock(nap);
+  els.napSummary.textContent = stats.count
+    ? `${pluralize(stats.count, "siesta", "siestas")} · ${formatDuration(stats.durationMs)} hoy`
+    : "Sin siestas hoy";
+}
+
+function startNap() {
+  if (state.activeNap) return;
+  state.activeNap = { id: makeId(), type: "nap", startISO: new Date().toISOString(), note: "" };
+  saveState();
+  render();
+  haptic("start");
+  showToast("Siesta en curso");
+}
+
+function stopNap() {
+  if (!state.activeNap) return;
+  const nap = structuredClone(state.activeNap);
+  const event = { ...state.activeNap, endISO: new Date().toISOString() };
+  state.activeNap = null;
+  addEvent(event, `Siesta guardada · ${formatDuration(napDurationMs(event))}`, () => {
+    if (!state.activeNap) state.activeNap = nap;
+  });
+}
+
+function cancelNap() {
+  if (!state.activeNap) return;
+  const nap = structuredClone(state.activeNap);
+  state.activeNap = null;
+  saveState();
+  render();
+  haptic("soft");
+  showToast("Siesta cancelada", () => {
+    if (state.activeNap) return showToast("Ya hay una siesta en curso");
+    state.activeNap = nap;
+    saveState();
+    render();
+  });
+}
+
+function napDurationMs(nap, now = new Date()) {
+  const start = Date.parse(nap.startISO);
+  const end = nap.endISO ? Date.parse(nap.endISO) : now.getTime();
+  return Number.isFinite(start) && Number.isFinite(end) ? Math.max(0, end - start) : 0;
+}
+
+function napClock(nap) {
+  const total = Math.floor(napDurationMs(nap) / 1000);
+  const hours = Math.floor(total / 3600);
+  const minutes = Math.floor(total / 60) % 60;
+  const seconds = total % 60;
+  return [ ...(hours ? [hours] : []), minutes, seconds ].map((part) => String(part).padStart(2, "0")).join(":");
+}
+
+function formatDuration(ms) {
+  if (ms > 0 && ms < 60000) return "<1 min";
+  const minutes = Math.floor(ms / 60000);
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  return hours ? `${hours} h${rest ? ` ${rest} min` : ""}` : `${minutes} min`;
+}
+
+function napOverlapMs(nap, dateKey, now = new Date()) {
+  const dayStart = new Date(`${dateKey}T00:00:00`);
+  const dayEnd = new Date(dayStart);
+  dayEnd.setDate(dayEnd.getDate() + 1);
+  const start = Math.max(Date.parse(nap.startISO), dayStart.getTime());
+  const end = Math.min(nap.endISO ? Date.parse(nap.endISO) : now.getTime(), dayEnd.getTime());
+  return Number.isFinite(start) && Number.isFinite(end) ? Math.max(0, end - start) : 0;
+}
+
+function napStatsForDate(dateKey, includeActive = true) {
+  const naps = eventsForDate(dateKey).filter((event) => event.type === "nap");
+  if (includeActive && state.activeNap && eventDateKey(state.activeNap) <= dateKey && (napOverlapMs(state.activeNap, dateKey) > 0 || eventDateKey(state.activeNap) === dateKey)) naps.push(state.activeNap);
+  return { count: naps.length, durationMs: naps.reduce((total, nap) => total + napOverlapMs(nap, dateKey), 0) };
+}
+
+function napFormError(start, end) {
+  if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime())) return "Completa la hora de dormir y de despertar.";
+  if (end <= start) return "La hora de despertar debe ser después de la hora de dormir. Revisa también el día.";
+  if (end > new Date()) return "La siesta no puede terminar en el futuro.";
+  return "";
 }
 
 function renderMedicineChecklist() {
@@ -867,11 +993,11 @@ function renderMedicineNotificationStatus() {
 }
 
 function renderTimeline(events) {
-  if (!events.length && !state.activeFeed) {
+  if (!events.length) {
     els.todayTimeline.innerHTML = `
       <div class="empty-state empty-state--warm">
         <strong>Hoy empieza limpio</strong>
-        <span>Las tomas, pañales y medicinas aparecerán aquí al guardarlas.</span>
+        <span>Las tomas, siestas, pañales y medicinas aparecerán aquí al guardarlas.</span>
       </div>
     `;
     return;
@@ -906,6 +1032,7 @@ function eventCard(event) {
 
 function eventIcon(event) {
   if (event.type === "feed") return SIDE_SHORT[event.side];
+  if (event.type === "nap") return "☾";
   if (event.type === "diaper") return diaperIcon(event);
   if (event.type === "weight") return "kg";
   if (event.type === "med") return event.short || medicineConfig(event.med).short;
@@ -914,6 +1041,7 @@ function eventIcon(event) {
 
 function eventTitle(event) {
   if (event.type === "feed") return `Toma · ${feedSideStory(event)}`;
+  if (event.type === "nap") return `Siesta · ${formatDuration(napDurationMs(event))}`;
   if (event.type === "diaper") return `Pañal · ${diaperLabel(event)}`;
   if (event.type === "weight") return `Peso · ${formatKg(event.kg)}`;
   if (event.type === "med") return event.name || medicineConfig(event.med).name;
@@ -921,6 +1049,11 @@ function eventTitle(event) {
 }
 
 function eventMeta(event) {
+  if (event.type === "nap") {
+    const endDate = dayKeyFromISO(event.endISO);
+    const nextDay = endDate !== eventDateKey(event) ? ` (${dateToShort(endDate)})` : "";
+    return `${formatTime(new Date(event.startISO))} - ${formatTime(new Date(event.endISO))}${nextDay}${event.note ? ` · ${event.note}` : ""}`;
+  }
   if (event.type === "feed") {
     const start = new Date(event.startISO);
     const end = event.endISO ? new Date(event.endISO) : null;
@@ -1014,6 +1147,8 @@ function renderHistorySummary() {
   els.historySummaryGrid.innerHTML = [
     historySummaryCard("Tomas/día", summary.feedsPerDay, `${summary.feeds.length} tomas`),
     historySummaryCard("Pañales/día", summary.diapersPerDay, `${summary.diapers.length} pañales`),
+    historySummaryCard("Siestas/día", summary.napsPerDay, pluralize(summary.naps.length, "siesta", "siestas")),
+    historySummaryCard("Siestas · tiempo", formatDuration(summary.napDurationMs), `Total · últimos ${historyRangeDays} días`),
     historySummaryCard("Popó", summary.poopCount, `${summary.peeCount} pis · ${summary.gasCount} peitos`),
     historySummaryCard("Último peso", summary.latestWeight ? formatKg(summary.latestWeight.kg) : "—", summary.latestWeight ? dateToHuman(eventDateKey(summary.latestWeight)) : "Sin peso"),
   ].join("");
@@ -1039,12 +1174,14 @@ function renderRhythmCard() {
       key,
       feeds: stats.feeds.length,
       diapers: stats.diapers.length,
+      naps: stats.naps.length,
       meds: stats.meds.length,
     };
   });
   const maxFeeds = Math.max(1, ...days.map((day) => day.feeds));
   const maxDiapers = Math.max(1, ...days.map((day) => day.diapers));
-  const hasData = days.some((day) => day.feeds || day.diapers || day.meds);
+  const maxNaps = Math.max(1, ...days.map((day) => day.naps));
+  const hasData = days.some((day) => day.feeds || day.diapers || day.naps || day.meds);
 
   if (!hasData) {
     els.rhythmCard.innerHTML = `
@@ -1064,28 +1201,31 @@ function renderRhythmCard() {
     <div class="rhythm-card__head">
       <div>
         <span>Ritmo</span>
-        <h3>Tomas y pañales por día</h3>
+        <h3>Tomas, siestas y pañales</h3>
       </div>
       <small>${historyRangeDays} días</small>
     </div>
-    <div class="rhythm-chart" aria-label="Tomas y pañales de los últimos ${historyRangeDays} días">
-      ${days.map((day) => rhythmDay(day, maxFeeds, maxDiapers)).join("")}
+    <div class="rhythm-chart" aria-label="Tomas, siestas y pañales de los últimos ${historyRangeDays} días">
+      ${days.map((day) => rhythmDay(day, maxFeeds, maxDiapers, maxNaps)).join("")}
     </div>
     <div class="rhythm-card__legend">
       <span><i class="legend-dot legend-dot--feed"></i>Tomas</span>
+      <span><i class="legend-dot legend-dot--nap"></i>Siestas</span>
       <span><i class="legend-dot legend-dot--diaper"></i>Pañales</span>
       <span><i class="legend-dot legend-dot--med"></i>Medicina registrada</span>
     </div>
   `;
 }
 
-function rhythmDay(day, maxFeeds, maxDiapers) {
+function rhythmDay(day, maxFeeds, maxDiapers, maxNaps) {
   const feedHeight = Math.max(day.feeds ? 14 : 4, Math.round((day.feeds / maxFeeds) * 72));
   const diaperHeight = Math.max(day.diapers ? 14 : 4, Math.round((day.diapers / maxDiapers) * 72));
+  const napHeight = Math.max(day.naps ? 14 : 4, Math.round((day.naps / maxNaps) * 72));
   return `
-    <div class="rhythm-day" title="${dateToHuman(day.key)} · ${day.feeds} tomas · ${day.diapers} pañales">
+    <div class="rhythm-day" title="${dateToHuman(day.key)} · ${day.feeds} tomas · ${pluralize(day.naps, "siesta", "siestas")} · ${day.diapers} pañales">
       <div class="rhythm-day__bars">
         <span class="rhythm-bar rhythm-bar--feed" style="height:${feedHeight}%"></span>
+        <span class="rhythm-bar rhythm-bar--nap" style="height:${napHeight}%"></span>
         <span class="rhythm-bar rhythm-bar--diaper" style="height:${diaperHeight}%"></span>
       </div>
       <span class="rhythm-day__label">${dateToShort(day.key)}</span>
@@ -1101,6 +1241,8 @@ function historySummary(days) {
   const diapers = events.filter((event) => event.type === "diaper");
   const notes = events.filter((event) => event.type === "note");
   const meds = events.filter((event) => event.type === "med");
+  const naps = state.events.filter((event) => event.type === "nap" && keys.some((key) => eventDateKey(event) === key || napOverlapMs(event, key) > 0));
+  const napTime = keys.reduce((total, key) => total + napStatsForDate(key, false).durationMs, 0);
   const weights = events.filter((event) => event.type === "weight").sort(byNewest);
   return {
     range: `${dateToShort(keys[0])} - ${dateToShort(keys[keys.length - 1])}`,
@@ -1108,6 +1250,9 @@ function historySummary(days) {
     diapers,
     notes,
     meds,
+    naps,
+    napDurationMs: napTime,
+    napsPerDay: averagePerDay(naps.length, keys.length),
     latestWeight: weights[0] || null,
     feedsPerDay: averagePerDay(feeds.length, keys.length),
     diapersPerDay: averagePerDay(diapers.length, keys.length),
@@ -1170,6 +1315,7 @@ function historyDayCard(date, events) {
         ${historyPill("Pañales", stats.diapers.length)}
         ${historyPill("Izq / Der", `${stats.left}/${stats.right}`)}
         ${historyPill("Meds / Notas", `${stats.meds.length}/${stats.notes.length}`)}
+        ${stats.naps.length ? historyPill("Siestas", stats.naps.length) + historyPill("Tiempo de siesta", formatDuration(napStatsForDate(date, false).durationMs)) : ""}
       </span>
     </button>
   `;
@@ -1180,12 +1326,14 @@ function dayStats(events) {
   const diapers = events.filter((event) => event.type === "diaper");
   const notes = events.filter((event) => event.type === "note");
   const meds = events.filter((event) => event.type === "med");
+  const naps = events.filter((event) => event.type === "nap");
   const weights = events.filter((event) => event.type === "weight").sort(byNewest);
   return {
     feeds,
     diapers,
     notes,
     meds,
+    naps,
     weight: weights[0] || null,
     left: feeds.filter((event) => event.side === "left").length,
     right: feeds.filter((event) => event.side === "right").length,
@@ -1206,7 +1354,7 @@ function renderMonthArchive(groups) {
   const months = monthArchiveGroups(groups);
   if (!months.length) return `<div class="empty-state">Sin archivo anterior</div>`;
   return months.map(([month, dayGroups], index) => {
-    const events = dayGroups.flatMap(([, dayEvents]) => dayEvents);
+    const events = Array.from(new Map(dayGroups.flatMap(([, dayEvents]) => dayEvents).map((event) => [event.id, event])).values());
     const stats = dayStats(events);
     return `
       <details class="month-card" ${index === 0 ? "open" : ""}>
@@ -1215,7 +1363,7 @@ function renderMonthArchive(groups) {
             <strong>${monthName(month)}</strong>
             <small>${pluralize(dayGroups.length, "día", "días")} · ${pluralize(events.length, "registro", "registros")}</small>
           </span>
-          <span>${stats.feeds.length} tomas · ${stats.diapers.length} pañales</span>
+          <span>${stats.feeds.length} tomas · ${stats.diapers.length} pañales${stats.naps.length ? ` · ${pluralize(stats.naps.length, "siesta", "siestas")}` : ""}</span>
         </summary>
         <div class="month-card__days">
           ${dayGroups.map(([date, dayEvents]) => monthDayRow(date, dayEvents)).join("")}
@@ -1231,7 +1379,7 @@ function monthDayRow(date, events) {
     <button class="month-day ${date === selectedHistoryDate ? "is-selected" : ""}" data-history-date="${date}" type="button">
       <span>${dateToHuman(date)}</span>
       <strong>${stats.feeds.length} tomas</strong>
-      <small>${stats.diapers.length} pañales · ${stats.notes.length} notas</small>
+      <small>${stats.diapers.length} pañales · ${stats.notes.length} notas${stats.naps.length ? ` · ${pluralize(stats.naps.length, "siesta", "siestas")}` : ""}</small>
     </button>
   `;
 }
@@ -1244,13 +1392,14 @@ function renderDayDetail(date) {
     <div class="day-detail__header">
       <span>Detalle</span>
       <h2>${dateToHuman(date)}</h2>
-      <p>${stats.feeds.length} tomas · ${stats.diapers.length} pañales · ${stats.meds.length} medicinas · ${stats.notes.length} notas</p>
+      <p>${stats.feeds.length} tomas · ${stats.diapers.length} pañales · ${pluralize(stats.naps.length, "siesta", "siestas")} · ${stats.meds.length} medicinas · ${stats.notes.length} notas</p>
     </div>
     <div class="day-detail__stats">
       ${historyPill("Izq / Der", `${stats.left}/${stats.right}`)}
       ${historyPill("Popó", stats.diapers.filter((event) => event.poop).length)}
       ${historyPill("Pis", stats.diapers.filter((event) => event.pee).length)}
       ${historyPill("Peso", stats.weight ? formatKg(stats.weight.kg) : "—")}
+      ${stats.naps.length ? historyPill("Siestas", stats.naps.length) + historyPill("Tiempo de siesta", formatDuration(napStatsForDate(date, false).durationMs)) : ""}
     </div>
     <div class="timeline day-detail__timeline">
       ${visibleEvents.length ? visibleEvents.map((event) => eventCard(event)).join("") : `<div class="empty-state">Sin eventos con este filtro</div>`}
@@ -1348,6 +1497,7 @@ function buildAlerts(todayEvents) {
 
 function tick() {
   renderActiveFeed();
+  renderNap();
   maybeRefreshActiveFeedNotification();
   maybeNotifyMedicineReminders();
   const latestFeed = [...state.events].filter((event) => event.type === "feed").sort(byNewest)[0];
@@ -1741,7 +1891,7 @@ function toggleMedicine(med, button = null) {
   if (button) animateElement(button, "is-medicine-stamped", 700);
 }
 
-function addEvent(event, message) {
+function addEvent(event, message, afterUndo = null) {
   state.events.push(event);
   const loveNote = maybeBuildLoveNote(event);
   saveState();
@@ -1753,6 +1903,7 @@ function addEvent(event, message) {
     if (event.type === "med" && event.med === "vitaminD") delete state.vitaminDByDate[eventDateKey(event)];
     if (event.type === "med" && state.medicineReminderNotified) delete state.medicineReminderNotified[`${eventDateKey(event)}-${event.med}`];
     if (loveNote?.key) delete state.loveNotesSeen[loveNote.key];
+    if (afterUndo) afterUndo();
     saveState();
     render();
     animateElement(els.todayEventTotal, "is-count-release", 520);
@@ -1769,18 +1920,27 @@ function restoreEvent(event, message = "Registro restaurado") {
   showToast(message);
 }
 
-function openManualDialog() {
+function openManualDialog(type = "feed") {
   els.manualDate.value = todayKey();
   els.manualTime.value = currentTimeValue();
   els.manualDuration.value = 15;
   els.manualNote.value = "";
   els.manualWeight.value = "";
-  setManualType("feed");
+  els.manualType.value = "";
+  setManualType(type);
   renderManualFields();
   els.manualDialog.showModal();
 }
 
 function setManualType(type) {
+  if (type === "nap" && els.manualType.value !== "nap") {
+    const end = new Date();
+    const start = new Date(end.getTime() - 30 * 60000);
+    els.manualDate.value = todayKey(start);
+    els.manualTime.value = timeInputValue(start);
+    els.manualNapEndDate.value = todayKey(end);
+    els.manualNapEndTime.value = timeInputValue(end);
+  }
   els.manualType.value = type;
   $$("[data-manual-type]").forEach((button) => {
     button.classList.toggle("is-active", button.dataset.manualType === type);
@@ -1791,11 +1951,19 @@ function setManualType(type) {
 function renderManualFields() {
   const type = els.manualType.value;
   els.manualFeedPanel.hidden = type !== "feed";
+  els.manualNapPanel.hidden = type !== "nap";
+  els.manualNapEndDate.disabled = type !== "nap";
+  els.manualNapEndTime.disabled = type !== "nap";
+  els.manualTimeLabel.textContent = type === "nap" ? "Se durmió" : "Hora";
+  els.manualDate.required = type === "nap";
+  els.manualTime.required = type === "nap";
+  els.manualNapError.hidden = true;
   els.manualDiaperPanel.hidden = type !== "diaper";
   els.manualMedicinePanel.hidden = type !== "medicine";
   els.manualWeightPanel.hidden = type !== "weight";
   const noteCopy = {
     feed: ["Nota de la toma", "Opcional"],
+    nap: ["Nota de la siesta", "Opcional"],
     diaper: ["Detalle del pañal", "moco, aguado, poquito..."],
     medicine: ["Nota medicina", "Opcional"],
     note: ["Nota", "Qué pasó"],
@@ -1815,6 +1983,17 @@ function saveManualEvent(event) {
   baseDate.setHours(hours, minutes, 0, 0);
   const note = els.manualNote.value.trim();
   let savedEvent = null;
+
+  if (type === "nap") {
+    const end = new Date(`${els.manualNapEndDate.value}T${els.manualNapEndTime.value}`);
+    const error = napFormError(baseDate, end);
+    if (error) {
+      els.manualNapError.textContent = error;
+      els.manualNapError.hidden = false;
+      return;
+    }
+    savedEvent = { id: makeId(), type: "nap", startISO: baseDate.toISOString(), endISO: end.toISOString(), note };
+  }
 
   if (type === "feed") {
     const duration = Number(els.manualDuration.value) || 15;
@@ -1901,6 +2080,12 @@ function openEditDialog(id) {
   els.editWeight.value = event.kg || "";
 
   els.editFeedPanel.hidden = event.type !== "feed";
+  els.editNapPanel.hidden = event.type !== "nap";
+  els.editNapEndDate.disabled = event.type !== "nap";
+  els.editNapEndTime.disabled = event.type !== "nap";
+  els.editTimeLabel.textContent = event.type === "nap" ? "Se durmió" : "Hora";
+  els.editDate.required = event.type === "nap";
+  els.editTime.required = event.type === "nap";
   els.editDiaperPanel.hidden = event.type !== "diaper";
   els.editMedicinePanel.hidden = event.type !== "med";
   els.editWeightPanel.hidden = event.type !== "weight";
@@ -1910,6 +2095,12 @@ function openEditDialog(id) {
     const end = event.endISO ? new Date(event.endISO) : new Date();
     els.editDuration.value = minutesBetween(date, end);
     els.editNoteLabel.textContent = "Nota de la toma";
+  }
+  if (event.type === "nap") {
+    const end = new Date(event.endISO);
+    els.editNapEndDate.value = todayKey(end);
+    els.editNapEndTime.value = timeInputValue(end);
+    els.editNoteLabel.textContent = "Nota de la siesta";
   }
   if (event.type === "diaper") {
     els.editDiaper.value = diaperKind(event);
@@ -1931,6 +2122,7 @@ function openEditDialog(id) {
 }
 
 function renderEditPreview() {
+  els.editNapError.hidden = true;
   const event = state.events.find((item) => item.id === els.editEventId.value);
   if (!event) {
     els.editPreview.textContent = "Editando registro";
@@ -1938,6 +2130,7 @@ function renderEditPreview() {
   }
   const time = els.editTime.value || currentTimeValue();
   if (event.type === "feed") els.editPreview.textContent = `Toma · ${feedSideStory({ side: els.editSide.value })} · ${els.editDuration.value || 15} min · ${time}`;
+  else if (event.type === "nap") els.editPreview.textContent = napPreviewText(els.editDate.value, time, els.editNapEndDate.value, els.editNapEndTime.value);
   else if (event.type === "diaper") els.editPreview.textContent = `Pañal · ${DIAPER_PRESETS[els.editDiaper.value]?.label || "Pañal"} · ${time}`;
   else if (event.type === "med") els.editPreview.textContent = `${medicineConfig(els.editMedicine.value).name} · ${medicineConfig(els.editMedicine.value).dose} · ${time}`;
   else if (event.type === "weight") els.editPreview.textContent = `Peso · ${els.editWeight.value || "kg"} · ${time}`;
@@ -1962,6 +2155,17 @@ function saveEditedEvent(event) {
     original.endISO = end.toISOString();
     original.side = els.editSide.value;
     original.segments = [{ side: els.editSide.value, startISO: baseDate.toISOString(), endISO: end.toISOString() }];
+    original.note = note;
+  } else if (original.type === "nap") {
+    const end = new Date(`${els.editNapEndDate.value}T${els.editNapEndTime.value}`);
+    const error = napFormError(baseDate, end);
+    if (error) {
+      els.editNapError.textContent = error;
+      els.editNapError.hidden = false;
+      return;
+    }
+    original.startISO = baseDate.toISOString();
+    original.endISO = end.toISOString();
     original.note = note;
   } else if (original.type === "diaper") {
     const preset = DIAPER_PRESETS[els.editDiaper.value];
@@ -2664,6 +2868,8 @@ function renderPediatricianSummary() {
     <div class="pediatrician-grid">
       ${pediatricianStat("Tomas/día", summary.feedsPerDay)}
       ${pediatricianStat("Pañales/día", summary.diapersPerDay)}
+      ${pediatricianStat("Siestas/día", summary.napsPerDay)}
+      ${pediatricianStat("Tiempo de siesta", summary.napTime)}
       ${pediatricianStat("Popó", summary.poopCount)}
       ${pediatricianStat("Notas", summary.notesCount)}
     </div>
@@ -2692,6 +2898,8 @@ function pediatricianSummary() {
     range: summary.range,
     feedsPerDay: summary.feedsPerDay,
     diapersPerDay: summary.diapersPerDay,
+    napsPerDay: summary.napsPerDay,
+    napTime: formatDuration(summary.napDurationMs),
     poopCount: summary.poopCount,
     notesCount: notes.length,
     highlight,
@@ -2704,6 +2912,8 @@ function pediatricianSummaryText() {
     `Resumen pediatra (${summary.range})`,
     `Tomas/día: ${summary.feedsPerDay}`,
     `Pañales/día: ${summary.diapersPerDay}`,
+    `Siestas/día: ${summary.napsPerDay}`,
+    `Tiempo de siesta registrado: ${summary.napTime}`,
     `Popó: ${summary.poopCount}`,
     `Notas: ${summary.notesCount}`,
     summary.highlight,
@@ -2740,14 +2950,22 @@ function manualPreviewText() {
   const type = els.manualType.value;
   const time = els.manualTime.value || currentTimeValue();
   if (type === "feed") return `Toma de ${els.manualDuration.value || 15} min · ${SIDE_LABELS[els.manualSide.value]} · ${time}`;
+  if (type === "nap") return napPreviewText(els.manualDate.value, time, els.manualNapEndDate.value, els.manualNapEndTime.value);
   if (type === "diaper") return `Pañal · ${DIAPER_PRESETS[els.manualDiaper.value]?.label || "Pañal"} · ${time}`;
   if (type === "medicine") return `${medicineConfig(els.manualMedicine.value).name} · ${medicineConfig(els.manualMedicine.value).dose} · ${time}`;
   if (type === "weight") return `Peso · ${els.manualWeight.value || "kg pendiente"} · ${time}`;
   return `Nota · ${time}`;
 }
 
+function napPreviewText(date, startTime, endDate, endTime) {
+  const start = new Date(`${date}T${startTime}`);
+  const end = new Date(`${endDate}T${endTime}`);
+  if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime()) || end <= start) return "Completa cuándo se durmió y cuándo se despertó.";
+  return `Siesta · ${formatTime(start)} - ${formatTime(end)}${date !== endDate ? ` (${dateToShort(endDate)})` : ""} · ${formatDuration(end - start)}`;
+}
+
 function eventsForDate(dateKey) {
-  return state.events.filter((event) => eventDateKey(event) === dateKey);
+  return state.events.filter((event) => eventDateKey(event) === dateKey || (event.type === "nap" && napOverlapMs(event, dateKey) > 0));
 }
 
 function eventDateKey(event) {
@@ -2760,6 +2978,17 @@ function groupEventsByDate() {
     const key = eventDateKey(event);
     if (!map.has(key)) map.set(key, []);
     map.get(key).push(event);
+    if (event.type === "nap" && event.endISO && napDurationMs(event) > 0) {
+      // A nap spanning midnight contributes only its overlapping time to each local day.
+      const day = new Date(`${key}T00:00:00`);
+      day.setDate(day.getDate() + 1);
+      while (day.getTime() < Date.parse(event.endISO)) {
+        const nextKey = todayKey(day);
+        if (!map.has(nextKey)) map.set(nextKey, []);
+        map.get(nextKey).push(event);
+        day.setDate(day.getDate() + 1);
+      }
+    }
   });
   return Array.from(map.entries()).sort((a, b) => b[0].localeCompare(a[0]));
 }
@@ -2774,6 +3003,7 @@ function exportMarkdown() {
       const meds = events.filter((event) => event.type === "med").sort(byOldest);
       const notes = events.filter((event) => event.type === "note").sort(byOldest);
       const weights = events.filter((event) => event.type === "weight").sort(byOldest);
+      const naps = events.filter((event) => event.type === "nap").sort(byOldest);
       const weightText = weights[0] ? `  ÚLTIMO PESO ${formatKg(weights[0].kg)}` : "";
 
       const feedLines = feeds.map(feedToMarkdown);
@@ -2795,6 +3025,7 @@ function exportMarkdown() {
         ...feedLines,
         ...medLines,
         ...noteLines,
+        ...(naps.length ? ["", `**Siestas · ${formatDuration(napStatsForDate(date, false).durationMs)}**`, ...naps.map((nap) => napToMarkdown(nap, date))] : []),
         "",
         `**++${state.settings.babyName} 💩++**`,
         `**${dateToShort(date)}**`,
@@ -2803,6 +3034,16 @@ function exportMarkdown() {
       ].join("\n");
     })
     .join("\n\n");
+}
+
+function napToMarkdown(nap, date) {
+  const dayStart = new Date(`${date}T00:00:00`);
+  const dayEnd = new Date(dayStart);
+  dayEnd.setDate(dayEnd.getDate() + 1);
+  const start = new Date(Math.max(Date.parse(nap.startISO), dayStart.getTime()));
+  const end = new Date(Math.min(Date.parse(nap.endISO), dayEnd.getTime()));
+  const endLabel = end.getTime() === dayEnd.getTime() ? "12:00AM (día siguiente)" : formatTime(end);
+  return `${formatTime(start)} - ${endLabel} · Siesta · ${formatDuration(end - start)}${nap.note ? ` · ${nap.note}` : ""}`;
 }
 
 function feedToMarkdown(event) {
@@ -2815,7 +3056,7 @@ function feedToMarkdown(event) {
 }
 
 function backupPayload() {
-  const snapshot = normalizeState({ ...structuredClone(state), activeFeed: null });
+  const snapshot = normalizeState({ ...structuredClone(state), activeFeed: null, activeNap: null });
   const sortedEvents = [...snapshot.events].sort(byOldest);
   return {
     app: "fede-baby-tracker",
@@ -2893,6 +3134,7 @@ async function restoreBackupFromFile(file) {
     if (!ok) return;
     state = nextState;
     state.activeFeed = null;
+    state.activeNap = null;
     saveState();
     render();
     haptic("save");

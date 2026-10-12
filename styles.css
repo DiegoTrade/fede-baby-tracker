@@ -322,6 +322,7 @@ h2 {
 .now-band,
 .capture-band,
 .diaper-hub,
+.nap-hub,
 .medicine-hub,
 .note-hub,
 .quick-log-band,
@@ -423,6 +424,121 @@ h2 {
 .diaper-hub {
   display: grid;
   gap: 12px;
+}
+
+.nap-hub {
+  border-top-color: rgba(109, 59, 239, 0.18);
+}
+
+.nap-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px 20px;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 16px;
+  background: var(--surface);
+  transition: background 240ms ease, border-color 240ms ease;
+}
+
+.nap-card.is-sleeping {
+  border-color: var(--plum);
+  background: var(--plum-soft);
+}
+
+.nap-card__status {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  min-width: 0;
+}
+
+.nap-card__moon {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  font-size: 30px;
+  background: var(--plum-soft);
+  color: var(--plum);
+}
+
+.nap-card__status strong {
+  display: block;
+  font-size: 18px;
+  line-height: 1.3;
+}
+
+.nap-card__status div > span,
+.nap-card__summary {
+  display: block;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.nap-card__timer {
+  min-width: 105px;
+  font-size: 30px;
+  font-weight: 850;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+
+.nap-card__actions {
+  display: flex;
+  gap: 8px;
+}
+
+.nap-card__actions button {
+  min-height: 48px;
+  white-space: nowrap;
+}
+
+.nap-card__summary {
+  grid-column: 1 / -1;
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+}
+
+.nap-form-error {
+  margin: 0;
+  color: #b32646;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+body.night-mode .nap-form-error {
+  color: #ffa1b5;
+}
+
+@media (max-width: 600px) {
+  .nap-card {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 14px;
+  }
+
+  .nap-card__status {
+    grid-template-columns: 44px minmax(0, 1fr);
+    gap: 4px 12px;
+  }
+
+  .nap-card.is-sleeping .nap-card__moon {
+    grid-row: 1 / span 2;
+  }
+
+  .nap-card__timer {
+    grid-column: 2;
+  }
+
+  .nap-card__actions button {
+    flex: 1;
+    min-width: 0;
+  }
 }
 
 .medicine-hub,
@@ -1592,6 +1708,12 @@ body.has-active-feed .active-feed::before {
   color: var(--plum);
 }
 
+.event-card__icon--nap {
+  background: var(--plum-soft);
+  color: var(--plum);
+  font-size: 24px;
+}
+
 .event-card__icon--weight,
 .event-card__icon--med {
   background: var(--sun-soft);
@@ -1736,7 +1858,7 @@ body.has-active-feed .active-feed::before {
 
 .history-summary-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
 }
 
@@ -1839,6 +1961,10 @@ body.has-active-feed .active-feed::before {
   background: linear-gradient(180deg, var(--blue), #79cfff);
 }
 
+.rhythm-bar--nap {
+  background: var(--plum);
+}
+
 .rhythm-day__label {
   color: var(--muted);
   font-size: 11px;
@@ -1886,6 +2012,10 @@ body.has-active-feed .active-feed::before {
 
 .legend-dot--diaper {
   background: var(--blue);
+}
+
+.legend-dot--nap {
+  background: var(--plum);
 }
 
 .legend-dot--med {
@@ -2470,7 +2600,7 @@ body.has-active-feed .active-feed::before {
 
 .manual-type-grid {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 6px;
 }
 

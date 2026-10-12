@@ -1,7 +1,7 @@
 import { HISTORICAL_IMPORT } from "./historical-data.js?v=23";
 
 const STORAGE_KEY = "fede-baby-tracker-v3";
-const APP_VERSION = "v66";
+const APP_VERSION = "v67";
 const BACKUP_VERSION = 1;
 const APP_VERSION_KEY = `${STORAGE_KEY}-app-version`;
 const LOVE_MESSAGES_PIN = "1234";
@@ -129,8 +129,7 @@ let historySearch = "";
 let selectedHistoryDate = "";
 let loveMessagesUnlocked = false;
 let activeTab = "today";
-let activeFeedNotificationId = "";
-let activeFeedNotificationMinute = null;
+let activeFeedNotificationTask = null;
 let pendingFeedActionSync = null;
 let activeFeedMinuteEffectKey = "";
 
@@ -496,13 +495,13 @@ function bindEvents() {
 
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) {
-      showActiveFeedNotification({ force: true, reason: "hidden" });
+      showActiveFeedNotification();
       return;
     }
     applyPendingFeedActions();
     renderNap();
   });
-  window.addEventListener("pagehide", () => showActiveFeedNotification({ force: true, reason: "pagehide" }));
+  window.addEventListener("pagehide", showActiveFeedNotification);
   window.addEventListener("focus", applyPendingFeedActions);
   if ("serviceWorker" in navigator) navigator.serviceWorker.addEventListener("message", handleServiceWorkerMessage);
 }
@@ -1498,7 +1497,6 @@ function buildAlerts(todayEvents) {
 function tick() {
   renderActiveFeed();
   renderNap();
-  maybeRefreshActiveFeedNotification();
   maybeNotifyMedicineReminders();
   const latestFeed = [...state.events].filter((event) => event.type === "feed").sort(byNewest)[0];
   if (latestFeed) {
@@ -1539,11 +1537,9 @@ function startFeed(side, offsetMinutes = 0) {
     tags: [],
     note: "",
   };
-  activeFeedNotificationId = "";
-  activeFeedNotificationMinute = null;
   saveState();
   render();
-  showActiveFeedNotification({ force: true, reason: "start" });
+  showActiveFeedNotification();
   haptic("start");
   showToast(offsetMinutes ? `Toma desde hace ${offsetMinutes} min` : `Toma: ${SIDE_LABELS[side]}`);
 }
@@ -1557,7 +1553,6 @@ function switchFeedSide(side) {
     delete state.activeFeed.pausedAtISO;
     saveState();
     render();
-    if (activeFeedNotificationId === state.activeFeed.id) showActiveFeedNotification({ force: true, reason: "switch" });
     haptic("tap");
     showToast(`Continúa ${SIDE_LABELS[side]}`);
     return;
@@ -1571,7 +1566,6 @@ function switchFeedSide(side) {
   state.activeFeed.side = deriveFeedSide(state.activeFeed.segments);
   saveState();
   render();
-  if (activeFeedNotificationId === state.activeFeed.id) showActiveFeedNotification({ force: true, reason: "switch" });
   haptic("tap");
   showToast(`Ahora ${SIDE_LABELS[side]}`);
 }
@@ -1593,7 +1587,6 @@ function pauseFeed() {
   state.activeFeed.pausedAtISO = now;
   saveState();
   render();
-  if (activeFeedNotificationId === state.activeFeed.id) showActiveFeedNotification({ force: true, reason: "pause" });
   haptic("soft");
   showToast("Toma pausada");
 }
@@ -1606,7 +1599,6 @@ function resumeFeed() {
   delete state.activeFeed.pausedAtISO;
   saveState();
   render();
-  if (activeFeedNotificationId === state.activeFeed.id) showActiveFeedNotification({ force: true, reason: "resume" });
   haptic("start");
   showToast("Toma continúa");
 }
@@ -1708,15 +1700,17 @@ function stopFeed(endISO = new Date().toISOString(), message = "Toma guardada") 
   };
   delete event.pausedAtISO;
   delete event.diaperEventId;
+  delete event.notificationSentISO;
   state.activeFeed = null;
-  closeActiveFeedNotifications();
+  closeActiveFeedNotifications(event.id);
   addEvent(event, message);
   showSaveBurst("feed");
 }
 
 function cancelFeed() {
+  const feedId = state.activeFeed?.id;
   state.activeFeed = null;
-  closeActiveFeedNotifications();
+  closeActiveFeedNotifications(feedId);
   saveState();
   render();
   haptic("soft");
@@ -2546,16 +2540,6 @@ function activeFeedElapsedMinutes() {
   return Math.max(0, Math.floor(feedDurationMs(state.activeFeed, new Date()) / 60000));
 }
 
-function activeFeedElapsedLabel() {
-  if (!state.activeFeed) return "";
-  const minutes = activeFeedElapsedMinutes();
-  if (minutes < 1) return "ahora";
-  if (minutes < 60) return `${minutes} min`;
-  const hours = Math.floor(minutes / 60);
-  const rest = minutes % 60;
-  return rest ? `${hours}h ${rest}m` : `${hours}h`;
-}
-
 function activeFeedLaunchUrl(action = "open") {
   const url = new URL("./index.html", window.location.href);
   url.searchParams.set("from", "feed-notification");
@@ -2748,24 +2732,40 @@ function formatTimeFromValue(value) {
   return formatTime(date);
 }
 
-async function showActiveFeedNotification({ force = false, reason = "" } = {}) {
-  if (!state.activeFeed || !("Notification" in window) || Notification.permission !== "granted" || !window.isSecureContext) {
+async function showActiveFeedNotification() {
+  const feed = state.activeFeed;
+  if (!feed || feed.notificationSentISO || !("Notification" in window) || Notification.permission !== "granted" || !window.isSecureContext) {
     return;
   }
+  if (activeFeedNotificationTask) {
+    if (activeFeedNotificationTask.feedId === feed.id) return activeFeedNotificationTask.promise;
+    await activeFeedNotificationTask.promise;
+    if (state.activeFeed?.id === feed.id) return showActiveFeedNotification();
+    return;
+  }
+  // Serialize delivery so a late notification cannot replace the next toma's notice.
+  const task = { feedId: feed.id, promise: null };
+  activeFeedNotificationTask = task;
+  task.promise = deliverActiveFeedNotification(feed).finally(() => {
+    if (activeFeedNotificationTask === task) activeFeedNotificationTask = null;
+  });
+  return task.promise;
+}
 
-  const minute = activeFeedElapsedMinutes();
-  if (!force && activeFeedNotificationId === state.activeFeed.id && activeFeedNotificationMinute === minute) return;
+async function deliverActiveFeedNotification(feed) {
 
   const notificationOptions = {
-    body: `${activeFeedHintText()} · empezó ${formatTime(new Date(state.activeFeed.startISO))}`,
+    body: `Empezó ${formatTime(new Date(feed.startISO))}`,
     icon: "./app-icon-192.png",
     badge: "./app-icon-192.png",
     tag: ACTIVE_FEED_NOTIFICATION_TAG,
-    renotify: reason === "manual" || reason === "hidden",
+    renotify: false,
+    silent: true,
+    timestamp: Date.parse(feed.startISO),
     requireInteraction: true,
     data: {
-      feedId: state.activeFeed.id,
-      startedAt: state.activeFeed.startISO,
+      feedId: feed.id,
+      startedAt: feed.startISO,
       url: activeFeedLaunchUrl("open"),
       finishUrl: activeFeedLaunchUrl(ACTIVE_FEED_FINISH_ACTION),
     },
@@ -2773,12 +2773,27 @@ async function showActiveFeedNotification({ force = false, reason = "" } = {}) {
       { action: ACTIVE_FEED_FINISH_ACTION, title: "Guardar toma" },
     ],
   };
-  const title = `${isActiveFeedPaused() ? "Toma pausada" : "Toma en curso"} · ${activeFeedElapsedLabel()}`;
+  const title = "Toma en curso";
 
   try {
     if ("serviceWorker" in navigator) {
       const registration = await navigator.serviceWorker.ready;
-      await registration.showNotification(title, notificationOptions);
+      if (state.activeFeed?.id !== feed.id) return;
+      const notifications = await registration.getNotifications({ tag: ACTIVE_FEED_NOTIFICATION_TAG });
+      if (state.activeFeed?.id !== feed.id) return;
+      if (!notifications.some((notification) => notification.data?.feedId === feed.id)) {
+        try {
+          await registration.showNotification(title, notificationOptions);
+        } catch {
+          if (state.activeFeed?.id !== feed.id) return;
+          const { actions, ...fallbackOptions } = notificationOptions;
+          await registration.showNotification(title, fallbackOptions);
+        }
+      }
+      if (state.activeFeed?.id !== feed.id) {
+        await closeActiveFeedNotifications(feed.id);
+        return;
+      }
     } else {
       const notification = new Notification(title, notificationOptions);
       notification.onclick = () => {
@@ -2786,36 +2801,20 @@ async function showActiveFeedNotification({ force = false, reason = "" } = {}) {
         focusActiveFeedPanel();
       };
     }
-    activeFeedNotificationId = state.activeFeed.id;
-    activeFeedNotificationMinute = minute;
+    feed.notificationSentISO = new Date().toISOString();
+    saveState();
   } catch {
-    try {
-      delete notificationOptions.actions;
-      const registration = "serviceWorker" in navigator ? await navigator.serviceWorker.ready : null;
-      if (registration?.showNotification) await registration.showNotification(title, notificationOptions);
-      activeFeedNotificationId = state.activeFeed.id;
-      activeFeedNotificationMinute = minute;
-    } catch {
-      // Lock-screen assist is best-effort. The active toma remains saved locally.
-    }
+    // Notification delivery is best-effort; failures never interrupt the timer.
   }
 }
 
-function maybeRefreshActiveFeedNotification() {
-  if (!state.activeFeed || document.hidden || activeFeedNotificationId !== state.activeFeed.id) return;
-  if (!("Notification" in window) || Notification.permission !== "granted") return;
-  if (activeFeedElapsedMinutes() === activeFeedNotificationMinute) return;
-  showActiveFeedNotification({ reason: "tick" });
-}
-
-async function closeActiveFeedNotifications() {
-  activeFeedNotificationId = "";
-  activeFeedNotificationMinute = null;
+async function closeActiveFeedNotifications(feedId) {
+  if (!feedId) return;
   try {
     if (!("serviceWorker" in navigator)) return;
     const registration = await navigator.serviceWorker.ready;
     const notifications = await registration.getNotifications({ tag: ACTIVE_FEED_NOTIFICATION_TAG });
-    notifications.forEach((notification) => notification.close());
+    notifications.filter((notification) => notification.data?.feedId === feedId).forEach((notification) => notification.close());
   } catch {
     // Notification cleanup is best-effort; the feed record is already saved locally.
   }

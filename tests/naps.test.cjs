@@ -4,51 +4,7 @@ const path = require("node:path");
 const test = require("node:test");
 const vm = require("node:vm");
 
-const appSource = fs.readFileSync(path.join(__dirname, "../app.js"), "utf8");
-
-async function tracker(saved) {
-  const nodes = new Map();
-  const storage = new Map();
-  if (saved) storage.set("fede-baby-tracker-v3", JSON.stringify(saved));
-  const element = () => ({
-    value: "", textContent: "", innerHTML: "", hidden: false, dataset: {},
-    classList: { toggle() {}, add() {}, remove() {} },
-    addEventListener() {}, setAttribute() {}, append() {}, focus() {},
-    showModal() { this.open = true; }, close() { this.open = false; },
-  });
-  const document = {
-    body: element(),
-    querySelector(selector) {
-      if (!nodes.has(selector)) nodes.set(selector, element());
-      return nodes.get(selector);
-    },
-    querySelectorAll: () => [],
-    createElement: element,
-    addEventListener() {},
-  };
-  const navigator = {};
-  const context = vm.createContext({
-    document, navigator, structuredClone, URL, Intl,
-    localStorage: { getItem: (key) => storage.get(key) || null, setItem: (key, value) => storage.set(key, value) },
-    setInterval() {},
-    window: {
-      navigator, location: { href: "http://localhost/" },
-      addEventListener() {}, setTimeout() {}, clearTimeout() {},
-      requestAnimationFrame() {}, matchMedia: () => ({ matches: true }),
-    },
-  });
-  const module = new vm.SourceTextModule(`${appSource}
-    export { napDurationMs, napOverlapMs, napStatsForDate, napFormError, formatDuration,
-      startNap, stopNap, cancelNap, eventsForDate, groupEventsByDate, exportMarkdown,
-      backupPayload, normalizeState, historySummary };
-    export const harness = { getState: () => state, undo: () => pendingUndo?.() };
-  `, { context });
-  await module.link(() => new vm.SyntheticModule(["HISTORICAL_IMPORT"], function () {
-    this.setExport("HISTORICAL_IMPORT", { events: [], version: "test", source: "Test", summary: { feed: 0, diaper: 0, weight: 0 } });
-  }, { context }));
-  await module.evaluate();
-  return { api: module.namespace, nodes, storage };
-}
+const tracker = require("./helpers/tracker.cjs");
 
 const iso = (local) => new Date(local).toISOString();
 const overnight = { id: "overnight", type: "nap", startISO: iso("2026-10-11T23:40:00"), endISO: iso("2026-10-12T00:30:00"), note: "" };
@@ -140,9 +96,9 @@ test("Federico's update preserves Mateo's offline cache", async () => {
   let activation;
   vm.runInNewContext(fs.readFileSync(path.join(__dirname, "../sw.js"), "utf8"), {
     self: { addEventListener: (name, handler) => handlers.set(name, handler), clients: { claim() {} } },
-    caches: { keys: async () => ["fede-baby-tracker-v65", "fede-baby-tracker-v66", "mateo-baby-tracker-v1"], delete: async (key) => deleted.push(key) },
+    caches: { keys: async () => ["fede-baby-tracker-v65", "fede-baby-tracker-v66", "fede-baby-tracker-v67", "mateo-baby-tracker-v1"], delete: async (key) => deleted.push(key) },
   });
   handlers.get("activate")({ waitUntil(promise) { activation = promise; } });
   await activation;
-  assert.deepEqual(deleted, ["fede-baby-tracker-v65"]);
+  assert.deepEqual(deleted, ["fede-baby-tracker-v65", "fede-baby-tracker-v66"]);
 });
